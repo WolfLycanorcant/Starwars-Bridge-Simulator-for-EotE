@@ -29,19 +29,8 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
-REM Start additional docker images
-echo [3/7] Starting additional docker services...
-docker run -d --name bridge_custom_1 --rm 60ae6320c9ef6b73dafb7b6c
-if %errorlevel% neq 0 (
-    echo WARNING: Failed to start first docker image (60ae6320c9ef6b73dafb7b6c)
-    docker rm -f bridge_custom_1 2>nul
-)
-
-docker run -d --name bridge_custom_2 --rm 60ae6320c9ef6b73dafb7b6c
-if %errorlevel% neq 0 (
-    echo WARNING: Failed to start second docker image (60ae6320c9ef6b73dafb7b6c)
-    docker rm -f bridge_custom_2 2>nul
-)
+REM Skip additional docker images - not needed for basic setup
+echo [3/7] Skipping additional docker services (not required)...
 
 REM Wait for databases to initialize
 echo [4/7] Waiting for databases to initialize...
