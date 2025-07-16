@@ -1,110 +1,139 @@
-# 🚀 Imperial Star Destroyer Bridge Simulator
+# 🚀 Star Wars Bridge Simulator for Edge of the Empire
 
-A real-time multiplayer bridge simulation game inspired by Star Wars, where players take on different crew roles aboard an Imperial Star Destroyer. Experience authentic bridge operations with immersive interfaces, real-time communication, and tactical gameplay.
+A real-time multiplayer bridge simulation game designed for Star Wars: Edge of the Empire RPG campaigns. Players take on different crew roles aboard starships, managing systems, coordinating operations, and experiencing immersive space adventures with their RPG group.
 
-![Bridge Simulator](https://img.shields.io/badge/Status-Complete-brightgreen)
+![Bridge Simulator](https://img.shields.io/badge/Status-Active%20Development-yellow)
 ![Version](https://img.shields.io/badge/Version-1.0.0-blue)
 ![Players](https://img.shields.io/badge/Players-1--8-orange)
 ![Platform](https://img.shields.io/badge/Platform-Web-lightgrey)
 
 ## 🎮 Game Overview
 
-Command an Imperial Star Destroyer with up to 8 players, each manning critical bridge stations. Coordinate with your crew to manage ship systems, engage in combat, navigate through space, and complete missions in this immersive Star Wars experience.
+Enhance your Star Wars: Edge of the Empire RPG sessions with an interactive bridge simulator. Players can take control of various starship stations, manage ship systems in real-time, and experience immersive space adventures that complement your tabletop campaigns.
 
 ### 🎯 Key Features
 
-- **Real-time Multiplayer**: Up to 8 players can join simultaneously
-- **Authentic Bridge Stations**: 6 specialized crew positions plus Game Master
-- **Immersive UI**: Star Wars-themed interfaces with animations and sound effects
-- **Advanced Systems**: Realistic ship management with power distribution, damage control, and tactical operations
-- **Mission System**: Dynamic scenarios and objectives
-- **Voice Communication**: Built-in voice chat support
-- **Cross-Platform**: Runs in any modern web browser
+- **RPG Integration**: Designed specifically for Edge of the Empire campaigns
+- **Real-time Multiplayer**: Multiple players can operate different ship stations
+- **Comprehensive Vehicle Database**: 400+ vehicles from the Star Wars universe
+- **Interactive Stations**: Engineering, Communications, and more bridge positions
+- **Power Distribution**: Realistic ship system management
+- **Helper Tools**: Extensive utilities for GMs and players
+- **Web-Based**: Runs in any modern web browser
+- **Example Components**: Ready-to-use station interfaces
 
-## 🛸 Bridge Stations
-
-### 👨‍✈️ Command Station
-- **Mission Overview**: Track objectives and mission status
-- **Tactical Display**: Real-time 3D space visualization
-- **Crew Management**: Monitor crew status and efficiency
-- **Strategic Controls**: Battle stations, general quarters, command overrides
-- **Fleet Coordination**: Communicate with other Imperial vessels
-
-### 🧭 Navigation Station (Pilot)
-- **Hyperspace Navigation**: Calculate and execute hyperspace jumps
-- **Sublight Maneuvering**: Precise ship movement and positioning
-- **Sensor Management**: Long-range and tactical sensors
-- **Proximity Alerts**: Asteroid fields, enemy contacts, spatial anomalies
-- **Autopilot Systems**: Automated navigation assistance
-
-### 🔫 Weapons Station (Gunner)
-- **Turbolaser Batteries**: Multiple weapon systems with targeting
-- **Missile Systems**: Proton torpedoes, concussion missiles, ion torpedoes
-- **Targeting Computer**: Advanced targeting with lock-on capabilities
-- **Fire Control**: Coordinated weapon strikes and salvos
-- **Defensive Systems**: Point-defense against incoming threats
+## 🛸 Available Stations
 
 ### ⚡ Engineering Station
 - **Power Distribution**: Manage power allocation across all ship systems
+- **System Diagnostics**: Real-time monitoring of ship health and performance
 - **Damage Control**: Coordinate repair operations and emergency protocols
-- **System Diagnostics**: Real-time monitoring of all ship systems
-- **Environmental Controls**: Life support, artificial gravity, atmosphere
-- **Emergency Systems**: Hull breach protocols, emergency power, abandon ship
+- **Resource Management**: Monitor fuel, ammunition, and consumables
+- **Emergency Systems**: Hull breach protocols, emergency power, life support
 
 ### 📡 Communications Station
-- **Subspace Communications**: Long-range Imperial network connectivity
-- **Encryption Systems**: Secure communications with encryption keys
-- **Signal Analysis**: Monitor enemy communications and jamming
+- **Long-Range Communications**: Contact other ships and stations
+- **Signal Analysis**: Monitor and decrypt enemy transmissions
+- **Sensor Coordination**: Manage sensor arrays and data sharing
 - **Emergency Beacons**: Distress signals and status reports
-- **Multi-Channel Management**: Coordinate multiple communication channels
+- **Information Warfare**: Electronic countermeasures and jamming
 
 ### 🎲 Game Master Station
-- **Scenario Control**: Create and manage dynamic missions
-- **Environmental Hazards**: Control space weather, anomalies, and obstacles
-- **Enemy AI**: Manage hostile forces and their behaviors
-- **System Failures**: Introduce realistic malfunctions and emergencies
-- **Narrative Control**: Guide story progression and player interactions
+- **Campaign Integration**: Tools designed for Edge of the Empire GMs
+- **Vehicle Management**: Access to comprehensive vehicle database
+- **Scenario Control**: Create dynamic space encounters
+- **System Events**: Introduce malfunctions, hazards, and complications
+- **Narrative Tools**: Guide story progression and player interactions
+
+## 🚀 Vehicle Database
+
+This simulator includes an extensive database of **400+ vehicles** from the Star Wars universe, specifically formatted for Edge of the Empire campaigns:
+
+### Vehicle Categories
+- **Starfighters**: X-Wings, TIE Fighters, A-Wings, and more
+- **Freighters**: YT-1300s, Ghtroc 720s, and various cargo ships
+- **Capital Ships**: Star Destroyers, Mon Calamari Cruisers, Corvettes
+- **Speeders**: Landspeeders, Airspeeders, and Speeder Bikes
+- **Walkers**: AT-ATs, AT-STs, and specialized Imperial walkers
+- **Unique Vessels**: Famous ships like the Ghost, Millennium Falcon variants
+
+### Vehicle Data Includes
+- Complete stat blocks for Edge of the Empire
+- Weapon systems and defensive capabilities
+- Crew requirements and passenger capacity
+- Hyperdrive ratings and sublight speeds
+- Customization options and modifications
+
+## 🛠️ Helper Tools
+
+### Power Distribution System
+- Interactive power management interface
+- Real-time system monitoring
+- Emergency power protocols
+- Visual power flow diagrams
+
+### Instrument Panels
+- Customizable ship interfaces
+- Sensor displays and readouts
+- Navigation computers
+- Weapon targeting systems
+
+### Vehicle Actions
+- Pre-configured maneuvers and actions
+- Combat options and special abilities
+- Environmental hazard responses
+- Emergency procedures
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 - **Node.js** 16+ and npm
-- **Docker** and Docker Compose
 - **Modern Web Browser** (Chrome, Firefox, Safari, Edge)
+- **Git** for cloning the repository
 
 ### Installation
 
 1. **Clone the Repository**
    ```bash
-   git clone https://github.com/your-username/star-destroyer-bridge-sim.git
-   cd star-destroyer-bridge-sim
+   git clone https://github.com/WolfLycanorcant/Starwars-Bridge-Simulator-for-EotE.git
+   cd Starwars-Bridge-Simulator-for-EotE
    ```
 
-2. **Install Dependencies**
+2. **Install Server Dependencies**
    ```bash
    npm install
-   cd client && npm install && cd ..
    ```
 
-3. **Start the Simulation**
+3. **Install Client Dependencies**
    ```bash
-   # Windows
+   cd client
+   npm install
+   cd ..
+   ```
+
+4. **Start the Application**
+   ```bash
+   # Windows - Use the provided batch file
    run.bat
    
-   # Linux/Mac
-   chmod +x run.sh && ./run.sh
+   # Or manually start both server and client:
+   # Terminal 1 - Start the server
+   npm run server:dev
+   
+   # Terminal 2 - Start the client
+   cd client
+   npm start
    ```
 
-4. **Access the Bridge**
-   - Open your browser to `http://localhost:3000`
-   - Create or join a session
-   - Select your bridge station
-   - Begin your mission!
+5. **Access the Application**
+   - **Client**: Open your browser to `http://localhost:3000`
+   - **Server**: Backend runs on `http://localhost:5000`
+   - Select your station and begin your adventure!
 
-### Docker Deployment
-
+### Alternative: Development Mode
 ```bash
-docker-compose up -d
+# Start both server and client simultaneously
+npm run dev
 ```
 
 ## 🎯 How to Play
@@ -135,23 +164,38 @@ docker-compose up -d
 
 ### Backend Stack
 - **Node.js** with TypeScript
+- **Express.js** web framework
 - **Socket.IO** for real-time communication
-- **PostgreSQL** for persistent data
-- **Redis** for session management
-- **Docker** for containerization
+- **PostgreSQL** for data persistence (optional)
+- **RESTful API** design
 
 ### Frontend Stack
-- **React** with TypeScript
-- **Styled Components** for theming
+- **React** 19+ with TypeScript
+- **Styled Components** for component styling
 - **Socket.IO Client** for real-time updates
 - **Responsive Design** for multiple screen sizes
+- **Modern React Hooks** and functional components
 
-### Key Systems
-- **Real-time State Management**: Synchronized game state across all clients
-- **Power Distribution System**: Realistic resource management mechanics
-- **Damage Control**: Dynamic system failures and repair mechanics
-- **Communication Networks**: Multi-channel encrypted communications
-- **Mission Framework**: Flexible scenario and objective system
+### Project Structure
+```
+├── client/                 # React frontend application
+│   ├── src/
+│   │   ├── components/     # React components
+│   │   │   └── stations/   # Station-specific components
+│   │   ├── types.ts        # TypeScript type definitions
+│   │   └── App.tsx         # Main application component
+│   └── package.json        # Client dependencies
+├── src/                    # Backend server code
+│   ├── server/             # Server implementation
+│   └── shared/             # Shared types and utilities
+├── database/               # Database initialization scripts
+├── helpers/                # Utility tools and resources
+│   ├── Vehicles/           # 400+ vehicle XML files
+│   ├── Vehicle Actions/    # Action definitions
+│   └── Power_Distribution_Only/  # Power system tools
+├── examples/               # Example station implementations
+└── package.json            # Server dependencies
+```
 
 ## 🎨 Customization
 
@@ -273,13 +317,34 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Documentation**: [Wiki](https://github.com/your-username/star-destroyer-bridge-sim/wiki)
-- **Issues**: [GitHub Issues](https://github.com/your-username/star-destroyer-bridge-sim/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/your-username/star-destroyer-bridge-sim/discussions)
-- **Discord**: [Community Server](https://discord.gg/your-server)
+- **Issues**: [GitHub Issues](https://github.com/WolfLycanorcant/Starwars-Bridge-Simulator-for-EotE/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/WolfLycanorcant/Starwars-Bridge-Simulator-for-EotE/discussions)
+- **Repository**: [Main Repository](https://github.com/WolfLycanorcant/Starwars-Bridge-Simulator-for-EotE)
+
+## 🎲 Edge of the Empire Integration
+
+This simulator is specifically designed to enhance your **Star Wars: Edge of the Empire** RPG sessions:
+
+### For Game Masters
+- Use the comprehensive vehicle database during space encounters
+- Create dynamic ship-to-ship combat scenarios
+- Manage multiple player ships with realistic system management
+- Add immersive elements to hyperspace travel and exploration
+
+### For Players
+- Experience your character's piloting and technical skills in real-time
+- Coordinate with your crew during intense space battles
+- Make meaningful decisions about power allocation and system management
+- Feel the tension of managing a damaged ship in hostile space
+
+### Campaign Enhancement
+- **Space Combat**: Turn abstract dice rolls into interactive experiences
+- **Ship Management**: Give Engineering and Piloting skills real meaning
+- **Team Coordination**: Encourage roleplay through station-based cooperation
+- **Narrative Immersion**: Create memorable moments through system failures and heroic repairs
 
 ---
 
-**May the Force be with you, Commander.** 🌟
+**May the Force be with you, and may your hyperdrive never fail when you need it most.** 🌟
 
-*Ready to command your Star Destroyer? The galaxy awaits your orders.*
+*Ready to take your Edge of the Empire campaign to the stars?*
