@@ -397,6 +397,25 @@ const PilotStation: React.FC = () => {
     };
   }, [audioEnabled]);
 
+  // Simulate altitude changes based on vertical heading (like in original example_instruments.html)
+  useEffect(() => {
+    const altitudeInterval = setInterval(() => {
+      setPilotState(prev => {
+        // Calculate altitude change based on vertical heading and speed
+        const verticalComponent = (prev.heading.y / 90) * (prev.speed / 100);
+        const altitudeChange = verticalComponent * 50; // Scale factor for realistic altitude changes
+        const newAltitude = Math.max(0, prev.altitude + altitudeChange);
+        
+        return {
+          ...prev,
+          altitude: newAltitude
+        };
+      });
+    }, 1000); // Update every second
+
+    return () => clearInterval(altitudeInterval);
+  }, []);
+
   // Enable audio on first user interaction
   const enableAudio = () => {
     if (!audioEnabled) {
@@ -421,58 +440,116 @@ const PilotStation: React.FC = () => {
     }
   };
 
-  // Control functions
+  // Control functions - Update local state immediately AND emit to socket
   const setSpeed = (increment: number) => {
     const newSpeed = Math.max(0, Math.min(100, pilotState.speed + increment));
+    // Update local state immediately
+    setPilotState(prev => ({ ...prev, speed: newSpeed }));
+    // Also emit to socket
     emitAction('set_speed', newSpeed);
   };
 
   const bankLeft = () => {
     const newHeading = Math.max(-180, Math.min(180, pilotState.heading.x - 10));
+    // Update local state immediately
+    setPilotState(prev => ({
+      ...prev,
+      heading: { ...prev.heading, x: newHeading }
+    }));
+    // Also emit to socket
     emitAction('update_heading_x', newHeading);
   };
 
   const bankRight = () => {
     const newHeading = Math.max(-180, Math.min(180, pilotState.heading.x + 10));
+    // Update local state immediately
+    setPilotState(prev => ({
+      ...prev,
+      heading: { ...prev.heading, x: newHeading }
+    }));
+    // Also emit to socket
     emitAction('update_heading_x', newHeading);
   };
 
   const navigateTerrain = () => {
     const newHeadingX = Math.floor(Math.random() * 360) - 180;
     const newHeadingY = Math.floor(Math.random() * 180) - 90;
+    // Update local state immediately
+    setPilotState(prev => ({
+      ...prev,
+      heading: { x: newHeadingX, y: newHeadingY }
+    }));
+    // Also emit to socket
     emitAction('update_heading_x', newHeadingX);
     emitAction('update_heading_y', newHeadingY);
   };
 
   const descend = () => {
     const newHeading = Math.max(-90, Math.min(90, pilotState.heading.y - 10));
+    // Update local state immediately
+    setPilotState(prev => ({
+      ...prev,
+      heading: { ...prev.heading, y: newHeading }
+    }));
+    // Also emit to socket
     emitAction('update_heading_y', newHeading);
   };
 
   const ascend = () => {
     const newHeading = Math.max(-90, Math.min(90, pilotState.heading.y + 10));
+    // Update local state immediately
+    setPilotState(prev => ({
+      ...prev,
+      heading: { ...prev.heading, y: newHeading }
+    }));
+    // Also emit to socket
     emitAction('update_heading_y', newHeading);
   };
 
   const punchIt = () => {
+    // Update local state immediately
+    setPilotState(prev => ({
+      ...prev,
+      speed: 100,
+      heading: { x: 0, y: 0 }
+    }));
+    // Also emit to socket
     emitAction('set_speed', 100);
     emitAction('update_heading_x', 0);
     emitAction('update_heading_y', 0);
   };
 
-  // Slider handlers
+  // Slider handlers - Update local state immediately AND emit to socket
   const handleHeadingXChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
+    // Update local state immediately for responsive UI
+    setPilotState(prev => ({
+      ...prev,
+      heading: { ...prev.heading, x: value }
+    }));
+    // Also emit to socket for multiplayer sync
     emitAction('update_heading_x', value);
   };
 
   const handleHeadingYChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
+    // Update local state immediately for responsive UI
+    setPilotState(prev => ({
+      ...prev,
+      heading: { ...prev.heading, y: value }
+    }));
+    // Also emit to socket for multiplayer sync
     emitAction('update_heading_y', value);
   };
 
   const handleSpeedChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
+    // Update local state immediately for responsive UI
+    setPilotState(prev => ({
+      ...prev,
+      speed: value
+    }));
+    // Also emit to socket for multiplayer sync
     emitAction('set_speed', value);
   };
 
