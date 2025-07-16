@@ -554,8 +554,10 @@ const PilotStation: React.FC = () => {
   };
 
   // Calculate gauge angles
-  const speedAngle = (pilotState.speed / 100) * 270 - 135;
-  const altitudeAngle = (pilotState.altitude / 1000) * 270 - 135;
+  // Speed needle starts at 12 o'clock (0 degrees) and rotates 270 degrees clockwise
+  const speedAngle = (pilotState.speed / 100) * 270;
+  // Altitude needle also starts at 12 o'clock
+  const altitudeAngle = ((pilotState.altitude % 10000) / 10000) * 270;
 
   return (
     <Container onClick={enableAudio}>
