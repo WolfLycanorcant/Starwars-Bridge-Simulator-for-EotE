@@ -4,6 +4,7 @@ import './App.css';
 import { GameState, StationType } from './types';
 import CommunicationsStation from './components/stations/CommunicationsStation';
 import EngineeringStation from './components/stations/EngineeringStation';
+import PilotStation from './components/stations/PilotStation';
 
 const STATIONS = [
   'COMMANDER',
@@ -119,8 +120,9 @@ function App() {
         return <CommunicationsStation gameState={gameState} onPlayerAction={handlePlayerAction} />;
       case 'ENGINEER':
         return <EngineeringStation gameState={gameState} onPlayerAction={handlePlayerAction} />;
-      case 'COMMANDER':
       case 'PILOT':
+        return <PilotStation />;
+      case 'COMMANDER':
       case 'GUNNER':
       case 'GAME_MASTER':
       default:
