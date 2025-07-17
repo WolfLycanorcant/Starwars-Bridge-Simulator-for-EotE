@@ -895,7 +895,10 @@ const PilotStation: React.FC = () => {
             <GaugeDial>
               <GaugeNeedle angle={altitudeAngle} />
               <GaugeValue>{Math.round(pilotState.altitude)}</GaugeValue>
-              <GaugeLabel>DISTANCE TO MASS (k)</GaugeLabel>
+              <GaugeLabel>
+                DISTANCE<br />
+                TO MASS (k)
+              </GaugeLabel>
             </GaugeDial>
           </CircularGauge>
         </InstrumentContainer>
