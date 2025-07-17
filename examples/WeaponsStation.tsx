@@ -470,8 +470,161 @@ const TorpedoSelector = styled.select`
   }
 `;
 
+// Unique Weapons Database (sample from vehicle files)
+const SAMPLE_UNIQUE_WEAPONS = [
+  { key: 'LASERMED', name: 'Medium Laser Cannon', type: 'Energy Weapon', damage: 6, critical: 3, range: 'Close', qualities: ['LINKED 3'], price: 2000, rarity: 4 },
+  { key: 'TURBOLT', name: 'Light Turbolaser', type: 'Energy Weapon', damage: 9, critical: 3, range: 'Long', qualities: ['BREACH 2', 'SLOW FIRING 1'], price: 15000, rarity: 7, restricted: true },
+  { key: 'IONMED', name: 'Medium Ion Cannon', type: 'Energy Weapon', damage: 6, critical: 4, range: 'Long', qualities: ['ION'], price: 3500, rarity: 5 },
+  { key: 'CML', name: 'Concussion Missile Launcher', type: 'Vehicle', damage: 6, critical: 3, range: 'Short', qualities: ['BLAST 4', 'BREACH 4', 'GUIDED 3', 'LIMITEDAMMO 12'], price: 6000, rarity: 5 },
+  { key: 'PTL', name: 'Proton Torpedo Launcher', type: 'Vehicle', damage: 8, critical: 2, range: 'Short', qualities: ['BLAST 6', 'BREACH 6', 'GUIDED 2', 'LIMITEDAMMO 6', 'LINKED 1'], price: 8000, rarity: 6, restricted: true },
+  { key: 'BLASTCANHVY', name: 'Heavy Blaster Cannon', type: 'Energy Weapon', damage: 8, critical: 3, range: 'Long', qualities: ['PIERCE 1'], price: 4500, rarity: 6 },
+  { key: 'LASERQUAD', name: 'Quad Laser Cannon', type: 'Energy Weapon', damage: 5, critical: 3, range: 'Close', qualities: ['ACCURATE 1', 'LINKED 3'], price: 3000, rarity: 5 },
+  { key: 'ANTIAIR', name: 'Anti-Air Rockets', type: 'Vehicle', damage: 4, critical: 3, range: 'Long', qualities: ['BLAST 2', 'GUIDED 2', 'LIMITEDAMMO 8'], price: 2500, rarity: 4 }
+];
+
+// Dropdown styled components
+const WeaponDropdownContainer = styled.div`
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+`;
+
+const DropdownPanel = styled.div`
+  background: var(--panel-bg);
+  padding: 15px;
+  border: 2px solid var(--weapon-blue);
+  border-radius: 8px;
+  backdrop-filter: blur(10px);
+  min-width: 300px;
+`;
+
+const DropdownLabel = styled.label`
+  color: var(--weapon-blue);
+  font-weight: bold;
+  font-size: 0.9em;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 8px;
+  display: block;
+`;
+
+const WeaponSelect = styled.select`
+  width: 100%;
+  padding: 8px 12px;
+  background: var(--bg-dark);
+  border: 2px solid var(--weapon-blue);
+  border-radius: 4px;
+  color: var(--weapon-yellow);
+  font-family: 'Orbitron', monospace;
+  font-size: 0.9em;
+  
+  &:focus {
+    outline: none;
+    border-color: var(--weapon-red);
+    box-shadow: 0 0 10px rgba(255, 0, 64, 0.3);
+  }
+  
+  option {
+    background: var(--bg-dark);
+    color: var(--weapon-yellow);
+    padding: 8px;
+  }
+`;
+
+const AddButton = styled.button`
+  width: 100%;
+  padding: 10px;
+  background: var(--weapon-green);
+  border: 2px solid var(--weapon-blue);
+  border-radius: 4px;
+  color: #000;
+  font-family: 'Orbitron', sans-serif;
+  font-weight: bold;
+  text-transform: uppercase;
+  cursor: pointer;
+  margin-top: 10px;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: var(--weapon-blue);
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 212, 255, 0.4);
+  }
+  
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+`;
+
+const RemoveButton = styled(AddButton)`
+  background: var(--weapon-red);
+  
+  &:hover {
+    background: var(--weapon-orange);
+    box-shadow: 0 4px 12px rgba(255, 136, 0, 0.4);
+  }
+`;
+
 // Main Component
 const WeaponsStationExample: React.FC = () => {
+  // Dropdown panel state for collapsible functionality
+  const [dropdownPositions, setDropdownPositions] = useState({
+    addWeaponPanel: { x: 20, y: 20, zIndex: 1000 },
+    removeWeaponPanel: { x: 20, y: 200, zIndex: 1000 }
+  });
+  const [dropdownCollapsed, setDropdownCollapsed] = useState({
+    addWeaponPanel: false,
+    removeWeaponPanel: false
+  });
+  const [selectedWeaponToAdd, setSelectedWeaponToAdd] = useState('');
+  const [dynamicWeaponModules, setDynamicWeaponModules] = useState([]);
+
+  // Dropdown functions
+  const toggleDropdownCollapse = (panelId: string) => {
+    setDropdownCollapsed(prev => ({
+      ...prev,
+      [panelId]: !prev[panelId]
+    }));
+  };
+
+  const handleDropdownMouseDown = (e: React.MouseEvent, panelId: string) => {
+    if (dropdownCollapsed[panelId]) return; // Don't drag when collapsed
+    
+    e.preventDefault();
+    const rect = e.currentTarget.getBoundingClientRect();
+    const startX = e.clientX - rect.left;
+    const startY = e.clientY - rect.top;
+    
+    // Simple drag implementation for example
+    const handleMouseMove = (moveEvent: MouseEvent) => {
+      const newX = moveEvent.clientX - startX;
+      const newY = moveEvent.clientY - startY;
+      
+      const boundedX = Math.max(0, Math.min(window.innerWidth - 300, newX));
+      const boundedY = Math.max(0, Math.min(window.innerHeight - 200, newY));
+      
+      setDropdownPositions(prev => ({
+        ...prev,
+        [panelId]: { ...prev[panelId], x: boundedX, y: boundedY }
+      }));
+    };
+    
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+    
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
   const [weaponsState, setWeaponsState] = useState<WeaponsState>({
     targeting: {
       currentTarget: null,
