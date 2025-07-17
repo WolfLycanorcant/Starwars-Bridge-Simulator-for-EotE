@@ -38,6 +38,14 @@ Enhance your Star Wars: Edge of the Empire RPG sessions with an interactive brid
 - **Emergency Beacons**: Distress signals and status reports
 - **Information Warfare**: Electronic countermeasures and jamming
 
+### 🎯 Weapons Station
+- **Targeting Systems**: Advanced radar and lock-on mechanics
+- **Primary Weapons**: Laser cannon control and heat management
+- **Secondary Weapons**: Ion cannons and specialized weapon systems
+- **Torpedo Management**: Proton torpedoes, concussion missiles, and ion torpedoes
+- **Shield Control**: Multi-directional shield management and power distribution
+- **Combat Coordination**: Real-time threat assessment and engagement protocols
+
 ### 🎲 Game Master Station
 - **Campaign Integration**: Tools designed for Edge of the Empire GMs
 - **Vehicle Management**: Access to comprehensive vehicle database
