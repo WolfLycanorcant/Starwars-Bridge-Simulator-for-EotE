@@ -890,7 +890,7 @@ const PilotStation: React.FC = () => {
       <InstrumentPanel>
         {/* Radio Altimeter */}
         <InstrumentContainer>
-          <InstrumentLabel>ALTITUDE</InstrumentLabel>
+          <InstrumentLabel>PROXIMITY</InstrumentLabel>
           <CircularGauge>
             <GaugeDial>
               <GaugeNeedle angle={altitudeAngle} />
