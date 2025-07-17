@@ -100,8 +100,13 @@ const StatusCard = styled.div`
   }
 `;
 
-const StatusValue = styled.div<{ alert?: string }>`
-  font-size: 2.5em;
+const StatusValue = styled.div<{ alert?: string; size?: 'large' | 'medium' | 'small' }>`
+  font-size: ${props => 
+    props.size === 'large' ? '3em' :
+    props.size === 'small' ? '1.8em' :
+    props.size === 'medium' ? '2.2em' :
+    '2.5em'
+  };
   font-weight: bold;
   margin: 10px 0;
   
