@@ -11,6 +11,17 @@ interface PilotState {
   speed: number;
   altitude: number;
   alert: string;
+  hyperdriveStatus: 'ready' | 'charging' | 'jumping' | 'cooldown';
+  fuelLevel: number;
+  shieldStatus: number;
+  engineTemp: number;
+  navigationComputer: {
+    targetSystem: string;
+    jumpDistance: number;
+    eta: number;
+  };
+  autopilot: boolean;
+  emergencyPower: boolean;
 }
 
 interface PlayerAction {
@@ -29,6 +40,18 @@ const blink = keyframes`
 const scanLine = keyframes`
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+`;
+
+const hyperdriveCharge = keyframes`
+  0% { box-shadow: 0 0 5px var(--starwars-blue); }
+  50% { box-shadow: 0 0 20px var(--starwars-blue), 0 0 30px var(--starwars-blue); }
+  100% { box-shadow: 0 0 5px var(--starwars-blue); }
+`;
+
+const pulse = keyframes`
+  0% { opacity: 0.7; }
+  50% { opacity: 1; }
+  100% { opacity: 0.7; }
 `;
 
 // Styled Components
@@ -334,26 +357,163 @@ const MacroButtons = styled.div`
   margin-right: auto;
 `;
 
-const MacroButton = styled.button`
-  background: var(--starwars-yellow);
-  color: #000;
+const MacroButton = styled.button<{ variant?: 'danger' | 'warning' | 'success' | 'disabled' }>`
+  background: ${props => 
+    props.variant === 'danger' ? 'var(--starwars-red)' :
+    props.variant === 'warning' ? '#ff8c00' :
+    props.variant === 'success' ? 'var(--starwars-green)' :
+    props.variant === 'disabled' ? '#666' :
+    'var(--starwars-yellow)'
+  };
+  color: ${props => props.variant === 'disabled' ? '#999' : '#000'};
   border: 2px solid var(--starwars-blue);
   padding: 15px 10px;
   font-size: 1.1em;
   font-weight: bold;
-  cursor: pointer;
+  cursor: ${props => props.variant === 'disabled' ? 'not-allowed' : 'pointer'};
   transition: all 0.3s;
   border-radius: 5px;
   
   &:hover {
-    background: var(--starwars-blue);
-    color: #fff;
-    transform: scale(1.05);
-    box-shadow: 0 0 15px var(--starwars-blue);
+    background: ${props => props.variant === 'disabled' ? '#666' : 'var(--starwars-blue)'};
+    color: ${props => props.variant === 'disabled' ? '#999' : '#fff'};
+    transform: ${props => props.variant === 'disabled' ? 'none' : 'scale(1.05)'};
+    box-shadow: ${props => props.variant === 'disabled' ? 'none' : '0 0 15px var(--starwars-blue)'};
   }
   
   &:active {
-    transform: scale(0.95);
+    transform: ${props => props.variant === 'disabled' ? 'none' : 'scale(0.95)'};
+  }
+`;
+
+const HyperdrivePanel = styled.div<{ status: string }>`
+  background: rgba(0, 0, 0, 0.7);
+  padding: 25px;
+  border: 2px solid var(--starwars-blue);
+  border-radius: 12px;
+  margin: 30px 0;
+  text-align: center;
+  backdrop-filter: blur(5px);
+  
+  ${props => props.status === 'charging' && css`
+    animation: ${hyperdriveCharge} 2s infinite;
+    border-color: var(--starwars-yellow);
+  `}
+  
+  ${props => props.status === 'jumping' && css`
+    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, rgba(0,0,0,0.7) 100%);
+    border-color: var(--starwars-yellow);
+    animation: ${pulse} 0.5s infinite;
+  `}
+  
+  h3 {
+    margin: 0 0 15px 0;
+    color: var(--starwars-blue);
+    font-size: 1.4rem;
+  }
+`;
+
+const NavigationComputer = styled.div`
+  background: rgba(0, 0, 0, 0.8);
+  padding: 20px;
+  border: 2px solid var(--starwars-green);
+  border-radius: 10px;
+  margin: 20px 0;
+  
+  h3 {
+    margin: 0 0 15px 0;
+    color: var(--starwars-green);
+    font-size: 1.3rem;
+  }
+  
+  .nav-info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 15px;
+    font-family: 'Courier New', monospace;
+  }
+  
+  .nav-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px solid rgba(34, 177, 76, 0.3);
+  }
+  
+  .nav-label {
+    color: var(--starwars-green);
+    font-weight: bold;
+  }
+  
+  .nav-value {
+    color: var(--starwars-yellow);
+  }
+`;
+
+const SystemStatus = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 15px;
+  margin: 20px 0;
+`;
+
+const SystemCard = styled.div<{ status: 'good' | 'warning' | 'critical' }>`
+  background: rgba(0, 0, 0, 0.6);
+  padding: 15px;
+  border: 2px solid ${props => 
+    props.status === 'critical' ? 'var(--starwars-red)' :
+    props.status === 'warning' ? 'var(--starwars-yellow)' :
+    'var(--starwars-green)'
+  };
+  border-radius: 8px;
+  text-align: center;
+  
+  ${props => props.status === 'critical' && css`
+    animation: ${blink} 1.5s infinite;
+  `}
+  
+  h4 {
+    margin: 0 0 10px 0;
+    color: ${props => 
+      props.status === 'critical' ? 'var(--starwars-red)' :
+      props.status === 'warning' ? 'var(--starwars-yellow)' :
+      'var(--starwars-green)'
+    };
+    font-size: 0.9rem;
+    text-transform: uppercase;
+  }
+  
+  .system-value {
+    font-size: 1.8rem;
+    font-weight: bold;
+    color: ${props => 
+      props.status === 'critical' ? 'var(--starwars-red)' :
+      props.status === 'warning' ? 'var(--starwars-yellow)' :
+      'var(--starwars-green)'
+    };
+  }
+  
+  .system-unit {
+    font-size: 0.8rem;
+    color: #ccc;
+  }
+`;
+
+const ToggleSwitch = styled.button<{ active: boolean }>`
+  background: ${props => props.active ? 'var(--starwars-green)' : '#333'};
+  color: ${props => props.active ? '#000' : '#ccc'};
+  border: 2px solid ${props => props.active ? 'var(--starwars-green)' : '#666'};
+  padding: 10px 20px;
+  border-radius: 25px;
+  cursor: pointer;
+  transition: all 0.3s;
+  font-weight: bold;
+  text-transform: uppercase;
+  
+  &:hover {
+    background: ${props => props.active ? 'var(--starwars-yellow)' : 'var(--starwars-blue)'};
+    color: #000;
+    border-color: var(--starwars-blue);
   }
 `;
 
@@ -363,8 +523,19 @@ const PilotStation: React.FC = () => {
   const [pilotState, setPilotState] = useState<PilotState>({
     heading: { x: 0, y: 0 },
     speed: 0,
-    altitude: 0,
-    alert: 'normal'
+    altitude: 1000,
+    alert: 'normal',
+    hyperdriveStatus: 'ready',
+    fuelLevel: 85,
+    shieldStatus: 92,
+    engineTemp: 45,
+    navigationComputer: {
+      targetSystem: 'Coruscant',
+      jumpDistance: 12.5,
+      eta: 0
+    },
+    autopilot: false,
+    emergencyPower: false
   });
   const [audioEnabled, setAudioEnabled] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -397,23 +568,49 @@ const PilotStation: React.FC = () => {
     };
   }, [audioEnabled]);
 
-  // Simulate altitude changes based on vertical heading (like in original example_instruments.html)
+  // Simulate altitude changes and system updates (like in original example_instruments.html)
   useEffect(() => {
-    const altitudeInterval = setInterval(() => {
+    const systemInterval = setInterval(() => {
       setPilotState(prev => {
         // Calculate altitude change based on vertical heading and speed
         const verticalComponent = (prev.heading.y / 90) * (prev.speed / 100);
-        const altitudeChange = verticalComponent * 50; // Scale factor for realistic altitude changes
+        const altitudeChange = verticalComponent * 50;
         const newAltitude = Math.max(0, prev.altitude + altitudeChange);
+        
+        // Simulate fuel consumption based on speed and engine temp
+        const fuelConsumption = (prev.speed / 100) * 0.1 + (prev.engineTemp > 80 ? 0.05 : 0);
+        const newFuelLevel = Math.max(0, prev.fuelLevel - fuelConsumption);
+        
+        // Engine temperature based on speed and usage
+        const targetTemp = 30 + (prev.speed / 100) * 50 + (prev.hyperdriveStatus === 'charging' ? 20 : 0);
+        const tempChange = (targetTemp - prev.engineTemp) * 0.1;
+        const newEngineTemp = Math.max(20, Math.min(120, prev.engineTemp + tempChange));
+        
+        // Shield fluctuation
+        const shieldChange = (Math.random() - 0.5) * 2;
+        const newShieldStatus = Math.max(0, Math.min(100, prev.shieldStatus + shieldChange));
+        
+        // Update ETA if hyperdrive is active
+        let newEta = prev.navigationComputer.eta;
+        if (prev.hyperdriveStatus === 'jumping' && newEta > 0) {
+          newEta = Math.max(0, newEta - 1);
+        }
         
         return {
           ...prev,
-          altitude: newAltitude
+          altitude: newAltitude,
+          fuelLevel: newFuelLevel,
+          engineTemp: newEngineTemp,
+          shieldStatus: newShieldStatus,
+          navigationComputer: {
+            ...prev.navigationComputer,
+            eta: newEta
+          }
         };
       });
-    }, 1000); // Update every second
+    }, 1000);
 
-    return () => clearInterval(altitudeInterval);
+    return () => clearInterval(systemInterval);
   }, []);
 
   // Enable audio on first user interaction
@@ -519,6 +716,86 @@ const PilotStation: React.FC = () => {
     emitAction('update_heading_y', 0);
   };
 
+  // Advanced control functions
+  const initiateHyperdrive = () => {
+    if (pilotState.hyperdriveStatus === 'ready' && pilotState.fuelLevel > 20) {
+      setPilotState(prev => ({ 
+        ...prev, 
+        hyperdriveStatus: 'charging',
+        navigationComputer: {
+          ...prev.navigationComputer,
+          eta: Math.ceil(prev.navigationComputer.jumpDistance * 2)
+        }
+      }));
+      
+      setTimeout(() => {
+        setPilotState(prev => ({ ...prev, hyperdriveStatus: 'jumping' }));
+        
+        setTimeout(() => {
+          setPilotState(prev => ({ 
+            ...prev, 
+            hyperdriveStatus: 'cooldown',
+            fuelLevel: Math.max(0, prev.fuelLevel - 15)
+          }));
+          
+          setTimeout(() => {
+            setPilotState(prev => ({ ...prev, hyperdriveStatus: 'ready' }));
+          }, 10000);
+        }, 3000);
+      }, 5000);
+      
+      emitAction('hyperdrive_jump', 1);
+    }
+  };
+
+  const toggleAutopilot = () => {
+    setPilotState(prev => ({ ...prev, autopilot: !prev.autopilot }));
+    emitAction('toggle_autopilot', pilotState.autopilot ? 0 : 1);
+  };
+
+  const toggleEmergencyPower = () => {
+    setPilotState(prev => ({ ...prev, emergencyPower: !prev.emergencyPower }));
+    emitAction('emergency_power', pilotState.emergencyPower ? 0 : 1);
+  };
+
+  const emergencyStop = () => {
+    setPilotState(prev => ({
+      ...prev,
+      speed: 0,
+      alert: 'red',
+      emergencyPower: true
+    }));
+    emitAction('emergency_stop', 1);
+    
+    setTimeout(() => {
+      setPilotState(prev => ({ ...prev, alert: 'normal' }));
+    }, 5000);
+  };
+
+  const evasiveManeuvers = () => {
+    const maneuvers = [
+      { x: -45, y: 15, speed: 80 },
+      { x: 30, y: -20, speed: 90 },
+      { x: -60, y: 25, speed: 75 },
+      { x: 45, y: -10, speed: 85 }
+    ];
+    
+    const maneuver = maneuvers[Math.floor(Math.random() * maneuvers.length)];
+    
+    setPilotState(prev => ({
+      ...prev,
+      heading: { x: maneuver.x, y: maneuver.y },
+      speed: maneuver.speed,
+      alert: 'yellow'
+    }));
+    
+    emitAction('evasive_maneuvers', 1);
+    
+    setTimeout(() => {
+      setPilotState(prev => ({ ...prev, alert: 'normal' }));
+    }, 3000);
+  };
+
   // Slider handlers - Update local state immediately AND emit to socket
   const handleHeadingXChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = parseInt(e.target.value);
@@ -575,6 +852,34 @@ const PilotStation: React.FC = () => {
           </StatusMessage>
         </StatusCard>
       </StatusGrid>
+
+      {/* System Status Monitoring */}
+      <SystemStatus>
+        <SystemCard status={pilotState.fuelLevel < 20 ? 'critical' : pilotState.fuelLevel < 50 ? 'warning' : 'good'}>
+          <h4>Fuel Level</h4>
+          <div className="system-value">{pilotState.fuelLevel.toFixed(1)}</div>
+          <div className="system-unit">%</div>
+        </SystemCard>
+        
+        <SystemCard status={pilotState.shieldStatus < 30 ? 'critical' : pilotState.shieldStatus < 60 ? 'warning' : 'good'}>
+          <h4>Shield Status</h4>
+          <div className="system-value">{pilotState.shieldStatus.toFixed(0)}</div>
+          <div className="system-unit">%</div>
+        </SystemCard>
+        
+        <SystemCard status={pilotState.engineTemp > 90 ? 'critical' : pilotState.engineTemp > 70 ? 'warning' : 'good'}>
+          <h4>Engine Temp</h4>
+          <div className="system-value">{pilotState.engineTemp.toFixed(0)}</div>
+          <div className="system-unit">°C</div>
+        </SystemCard>
+        
+        <SystemCard status={pilotState.hyperdriveStatus === 'ready' ? 'good' : 'warning'}>
+          <h4>Hyperdrive</h4>
+          <div className="system-value" style={{ fontSize: '1.2rem' }}>
+            {pilotState.hyperdriveStatus.toUpperCase()}
+          </div>
+        </SystemCard>
+      </SystemStatus>
 
       {/* Flight Instruments */}
       <InstrumentPanel>
@@ -670,23 +975,89 @@ const PilotStation: React.FC = () => {
         </AxisControl>
       </ControlsGrid>
 
-      {/* Macro Buttons */}
+      {/* Navigation Computer */}
+      <NavigationComputer>
+        <h3>NAVIGATION COMPUTER</h3>
+        <div className="nav-info">
+          <div className="nav-item">
+            <span className="nav-label">TARGET SYSTEM:</span>
+            <span className="nav-value">{pilotState.navigationComputer.targetSystem}</span>
+          </div>
+          <div className="nav-item">
+            <span className="nav-label">JUMP DISTANCE:</span>
+            <span className="nav-value">{pilotState.navigationComputer.jumpDistance} parsecs</span>
+          </div>
+          <div className="nav-item">
+            <span className="nav-label">CURRENT SPEED:</span>
+            <span className="nav-value">{pilotState.speed}% sublight</span>
+          </div>
+          <div className="nav-item">
+            <span className="nav-label">ETA:</span>
+            <span className="nav-value">
+              {pilotState.navigationComputer.eta > 0 ? `${pilotState.navigationComputer.eta}s` : 'N/A'}
+            </span>
+          </div>
+        </div>
+      </NavigationComputer>
+
+      {/* Hyperdrive Panel */}
+      <HyperdrivePanel status={pilotState.hyperdriveStatus}>
+        <h3>HYPERDRIVE SYSTEM</h3>
+        <StatusValue size="medium">
+          {pilotState.hyperdriveStatus.toUpperCase()}
+        </StatusValue>
+        <div style={{ margin: '20px 0' }}>
+          <MacroButton 
+            onClick={initiateHyperdrive}
+            variant={
+              pilotState.hyperdriveStatus !== 'ready' ? 'disabled' :
+              pilotState.fuelLevel < 20 ? 'danger' : 'success'
+            }
+            disabled={pilotState.hyperdriveStatus !== 'ready' || pilotState.fuelLevel < 20}
+          >
+            {pilotState.hyperdriveStatus === 'ready' ? 
+              (pilotState.fuelLevel < 20 ? 'INSUFFICIENT FUEL' : '🚀 JUMP TO HYPERSPACE') :
+             pilotState.hyperdriveStatus === 'charging' ? '⚡ CHARGING HYPERDRIVE...' :
+             pilotState.hyperdriveStatus === 'jumping' ? '🌟 JUMPING...' : 
+             '🔄 HYPERDRIVE COOLDOWN'}
+          </MacroButton>
+        </div>
+      </HyperdrivePanel>
+
+      {/* Advanced Controls */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', margin: '30px 0' }}>
+        <div style={{ textAlign: 'center' }}>
+          <h4 style={{ color: 'var(--starwars-blue)', marginBottom: '15px' }}>AUTOPILOT</h4>
+          <ToggleSwitch active={pilotState.autopilot} onClick={toggleAutopilot}>
+            {pilotState.autopilot ? 'ENGAGED' : 'MANUAL'}
+          </ToggleSwitch>
+        </div>
+        
+        <div style={{ textAlign: 'center' }}>
+          <h4 style={{ color: 'var(--starwars-blue)', marginBottom: '15px' }}>EMERGENCY POWER</h4>
+          <ToggleSwitch active={pilotState.emergencyPower} onClick={toggleEmergencyPower}>
+            {pilotState.emergencyPower ? 'ACTIVE' : 'STANDBY'}
+          </ToggleSwitch>
+        </div>
+      </div>
+
+      {/* Enhanced Macro Buttons */}
       <MacroButtons>
-        <MacroButton onClick={() => setSpeed(-10)}>
-          ◀ SLOW DOWN
+        <MacroButton onClick={() => setSpeed(-15)} variant="warning">
+          ◀ DECELERATE
         </MacroButton>
-        <MacroButton onClick={() => setSpeed(50)}>
-          🔄 CRUISE
+        <MacroButton onClick={() => setSpeed(25)} variant="success">
+          🔄 CRUISE SPEED
         </MacroButton>
-        <MacroButton onClick={() => setSpeed(10)}>
-          ▶ SPEED UP
+        <MacroButton onClick={() => setSpeed(15)}>
+          ▶ ACCELERATE
         </MacroButton>
 
         <MacroButton onClick={bankLeft}>
           ⬅ BANK LEFT
         </MacroButton>
-        <MacroButton onClick={navigateTerrain}>
-          🧭 NAVIGATE
+        <MacroButton onClick={evasiveManeuvers} variant="warning">
+          ⚡ EVASIVE MANEUVERS
         </MacroButton>
         <MacroButton onClick={bankRight}>
           ➡ BANK RIGHT
@@ -695,11 +1066,21 @@ const PilotStation: React.FC = () => {
         <MacroButton onClick={descend}>
           ⬇ DESCEND
         </MacroButton>
-        <MacroButton onClick={punchIt}>
-          🚀 PUNCH IT!
+        <MacroButton onClick={punchIt} variant="success">
+          🚀 FULL THROTTLE
         </MacroButton>
         <MacroButton onClick={ascend}>
           ⬆ ASCEND
+        </MacroButton>
+
+        <MacroButton onClick={emergencyStop} variant="danger">
+          🛑 EMERGENCY STOP
+        </MacroButton>
+        <MacroButton onClick={() => setPilotState(prev => ({ ...prev, heading: { x: 0, y: 0 } }))}>
+          📍 LEVEL FLIGHT
+        </MacroButton>
+        <MacroButton onClick={() => window.location.reload()} variant="warning">
+          🔄 RESET SYSTEMS
         </MacroButton>
       </MacroButtons>
 
