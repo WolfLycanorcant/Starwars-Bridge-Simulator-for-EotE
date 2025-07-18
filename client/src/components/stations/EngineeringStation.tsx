@@ -367,35 +367,60 @@ const EngineeringStation: React.FC<EngineeringStationProps> = ({ gameState, onPl
         </div>
       </div>
 
-      {/* Repair Operations Panel */}
+      {/* Damage Control & Repair Operations Panel */}
       <div style={panelStyle}>
-        <h3 style={panelTitleStyle}>REPAIR OPERATIONS</h3>
+        <h3 style={panelTitleStyle}>DAMAGE CONTROL & REPAIR</h3>
 
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-          <div style={{ flex: 1, marginBottom: '15px' }}>
-            {engineering.repairQueue.length === 0 ? (
-              <div style={{ color: '#888888', textAlign: 'center', marginTop: '20px' }}>
-                No active repair operations
-              </div>
-            ) : (
-              <div>Repair queue would be displayed here</div>
-            )}
+        <div style={{ fontSize: '11px', marginBottom: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span>Hull Integrity:</span>
+            <span style={{ color: systems.hull.health > 50 ? '#00ff00' : '#ff0000' }}>
+              {systems.hull.health}%
+            </span>
           </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span>Shield Status:</span>
+            <span style={{ color: systems.shields.health > 50 ? '#00ff00' : '#ff8800' }}>
+              {systems.shields.status.toUpperCase()}
+            </span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
+            <span>Life Support:</span>
+            <span style={{ color: systems.lifeSupport.health > 75 ? '#00ff00' : '#ff0000' }}>
+              {systems.lifeSupport.health > 75 ? 'STABLE' : 'CRITICAL'}
+            </span>
+          </div>
+        </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-            <button style={{...buttonStyle, background: 'rgba(255, 136, 0, 0.1)', borderColor: '#ff8800', color: '#ff8800'}} onClick={() => handleRepairSystem('hull')}>
-              REPAIR HULL
-            </button>
-            <button style={{...buttonStyle, background: 'rgba(255, 136, 0, 0.1)', borderColor: '#ff8800', color: '#ff8800'}} onClick={() => handleRepairSystem('shields')}>
-              REPAIR SHIELDS
-            </button>
-            <button style={buttonStyle} onClick={() => handleRepairSystem('weapons')}>
-              REPAIR WEAPONS
-            </button>
-            <button style={buttonStyle} onClick={() => handleRepairSystem('engines')}>
-              REPAIR ENGINES
-            </button>
-          </div>
+        <div style={{ flex: 1, marginBottom: '15px' }}>
+          {engineering.repairQueue.length === 0 ? (
+            <div style={{ color: '#888888', textAlign: 'center', fontSize: '10px' }}>
+              No active repair operations
+            </div>
+          ) : (
+            <div>Repair queue would be displayed here</div>
+          )}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <button style={{...buttonStyle, background: 'rgba(255, 136, 0, 0.1)', borderColor: '#ff8800', color: '#ff8800'}} onClick={() => handleRepairSystem('hull')}>
+            REPAIR HULL
+          </button>
+          <button style={{...buttonStyle, background: 'rgba(255, 136, 0, 0.1)', borderColor: '#ff8800', color: '#ff8800'}} onClick={() => handleRepairSystem('shields')}>
+            REPAIR SHIELDS
+          </button>
+          <button style={buttonStyle} onClick={() => handleRepairSystem('weapons')}>
+            REPAIR WEAPONS
+          </button>
+          <button style={buttonStyle} onClick={() => handleRepairSystem('engines')}>
+            REPAIR ENGINES
+          </button>
+          <button style={{...buttonStyle, background: 'rgba(255, 0, 0, 0.1)', borderColor: '#ff0000', color: '#ff0000'}} onClick={() => onPlayerAction('seal_hull_breach', {})}>
+            SEAL BREACH
+          </button>
+          <button style={{...buttonStyle, background: 'rgba(255, 136, 0, 0.1)', borderColor: '#ff8800', color: '#ff8800'}} onClick={() => onPlayerAction('reroute_power', { emergency: true })}>
+            REROUTE PWR
+          </button>
         </div>
       </div>
 
@@ -432,37 +457,69 @@ const EngineeringStation: React.FC<EngineeringStationProps> = ({ gameState, onPl
         </div>
       </div>
 
-      {/* Damage Control Panel */}
+      {/* Astrogation Course Plotting Panel */}
       <div style={panelStyle}>
-        <h3 style={panelTitleStyle}>DAMAGE CONTROL</h3>
+        <h3 style={panelTitleStyle}>ASTROGATION</h3>
 
         <div style={{ fontSize: '11px', marginBottom: '15px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span>Hull Integrity:</span>
-            <span style={{ color: systems.hull.health > 50 ? '#00ff00' : '#ff0000' }}>
-              {systems.hull.health}%
+            <span>Current Position:</span>
+            <span style={{ color: '#00ff00' }}>
+              CORUSCANT SYSTEM
             </span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span>Shield Status:</span>
-            <span style={{ color: systems.shields.health > 50 ? '#00ff00' : '#ff8800' }}>
-              {systems.shields.status.toUpperCase()}
+            <span>Hyperdrive Status:</span>
+            <span style={{ color: '#00ff00' }}>
+              READY
             </span>
           </div>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
-            <span>Life Support:</span>
-            <span style={{ color: systems.lifeSupport.health > 75 ? '#00ff00' : '#ff0000' }}>
-              {systems.lifeSupport.health > 75 ? 'STABLE' : 'CRITICAL'}
+            <span>Nav Computer:</span>
+            <span style={{ color: '#ffaa00' }}>
+              CALCULATING
             </span>
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-          <button style={{...buttonStyle, background: 'rgba(255, 0, 0, 0.1)', borderColor: '#ff0000', color: '#ff0000'}} onClick={() => onPlayerAction('seal_hull_breach', {})}>
-            SEAL BREACH
+        <div style={{ 
+          flex: 1, 
+          background: 'rgba(0, 0, 0, 0.6)', 
+          border: '1px solid #664400', 
+          borderRadius: '4px', 
+          padding: '10px', 
+          marginBottom: '15px',
+          minHeight: '120px'
+        }}>
+          <div style={{ color: '#ffaa00', marginBottom: '10px', fontWeight: 'bold', fontSize: '10px' }}>
+            COURSE PLOTTING:
+          </div>
+          <div style={{ color: '#00ff00', fontSize: '10px', marginBottom: '5px' }}>
+            → Destination: TATOOINE SYSTEM
+          </div>
+          <div style={{ color: '#ffaa00', fontSize: '10px', marginBottom: '5px' }}>
+            → Distance: 12,847 parsecs
+          </div>
+          <div style={{ color: '#ffaa00', fontSize: '10px', marginBottom: '5px' }}>
+            → Travel Time: 4.2 standard hours
+          </div>
+          <div style={{ color: '#ff8800', fontSize: '10px' }}>
+            → Hazards: Imperial patrol routes
+          </div>
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+          <button style={{...buttonStyle, background: 'rgba(0, 255, 0, 0.1)', borderColor: '#00ff00', color: '#00ff00'}} onClick={() => onPlayerAction('plot_course', { destination: 'selected' })}>
+            PLOT COURSE
           </button>
-          <button style={{...buttonStyle, background: 'rgba(255, 136, 0, 0.1)', borderColor: '#ff8800', color: '#ff8800'}} onClick={() => onPlayerAction('reroute_power', { emergency: true })}>
-            REROUTE PWR
+          <button style={{...buttonStyle, background: 'rgba(0, 136, 255, 0.1)', borderColor: '#0088ff', color: '#0088ff'}} onClick={() => onPlayerAction('engage_hyperdrive', {})}>
+            ENGAGE
+          </button>
+          <button style={buttonStyle} onClick={() => onPlayerAction('update_nav_data', {})}>
+            UPDATE NAV
+          </button>
+          <button style={{...buttonStyle, background: 'rgba(255, 136, 0, 0.1)', borderColor: '#ff8800', color: '#ff8800'}} onClick={() => onPlayerAction('emergency_jump', {})}>
+            EMRG JUMP
           </button>
         </div>
       </div>
