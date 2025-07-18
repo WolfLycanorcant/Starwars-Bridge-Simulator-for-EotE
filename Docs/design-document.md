@@ -782,6 +782,15 @@ interface GameEvent {
 - Modular weapon system interface with dynamic vehicle integration
 - Real-time vehicle weapon configuration from XML database
 
+#### Enhanced Weapons Module System
+- **Dynamic Module Management**: Add and remove weapon modules through dropdown selection interface
+- **Flexible Positioning**: Drag-and-drop weapon modules to any position on the screen for customized layouts
+- **Individual Heat Management**: Each energy weapon displays its own heat bar that increases when fired and gradually cools down over time
+- **Torpedo Bay Integration**: Centralized ammunition tracking for proton torpedoes, concussion missiles, ion torpedoes, and rockets
+- **Smart Ammunition Display**: Only shows ammunition types that are currently available and relevant to equipped weapons
+- **Automatic Consumption Tracking**: Ammunition counts automatically decrease when firing weapons that require it
+- **Firing State Management**: Weapons are automatically disabled when out of ammunition to prevent invalid firing attempts
+
 #### Engineering
 - Power distribution optimization
 - Repair mini-games

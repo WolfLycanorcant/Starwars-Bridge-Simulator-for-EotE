@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { io, Socket } from 'socket.io-client';
+import { ZeroingSystem, ZeroingSystemRef } from './Zeroing';
 
 // Types for weapons station
 interface WeaponsState {
@@ -750,7 +751,18 @@ const RemoveButton = styled(AddButton)`
 
 // Main Component
 const WeaponsStation: React.FC = () => {
+  // Zeroing System Ref
+  const zeroingSystemRef = useRef<ZeroingSystemRef>(null);
+  const [showZeroingSystem, setShowZeroingSystem] = useState(false);
   console.log('🎯 WEAPONS STATION COMPONENT LOADING'); // Debug: Check if component loads
+
+  // Start zeroing for the currently selected weapon
+  const startZeroing = (weaponId: string) => {
+    if (zeroingSystemRef.current) {
+      zeroingSystemRef.current.startZeroingExercise(weaponId, 'intermediate');
+      setShowZeroingSystem(true);
+    }
+  };
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [weaponsState, setWeaponsState] = useState<WeaponsState>({
@@ -825,6 +837,34 @@ const WeaponsStation: React.FC = () => {
     addWeaponPanel: false,
     removeWeaponPanel: false
   });
+
+  // Zeroing system functions
+  const handleCalibrationComplete = (weaponId: string, accuracyBonus: number) => {
+    // Apply accuracy bonus to the weapon
+    setDynamicWeaponModules(prev => 
+      prev.map(module => 
+        module.id === weaponId 
+          ? { 
+              ...module, 
+              weaponData: { 
+                ...module.weaponData, 
+                qualities: [
+                  ...module.weaponData.qualities.filter(q => !q.startsWith('ACCURATE')),
+                  `ACCURATE ${Math.min(3, Math.ceil(accuracyBonus / 10))}`
+                ]
+              } 
+            } 
+          : module
+      )
+    );
+    console.log(`Applied +${accuracyBonus}% accuracy bonus to weapon ${weaponId}`);
+  };
+
+  const startZeroingExercise = (weaponId: string, difficulty: 'novice' | 'intermediate' | 'expert' | 'ace' = 'novice') => {
+    if (zeroingSystemRef.current && zeroingSystemRef.current.startZeroingExercise) {
+      zeroingSystemRef.current.startZeroingExercise(weaponId, difficulty);
+    }
+  };
 
   // Dropdown collapse and drag functions
   const toggleDropdownCollapse = (panelId: string) => {
@@ -960,7 +1000,7 @@ const WeaponsStation: React.FC = () => {
     }
 
     // Check for ion torpedoes
-    if (weaponName.includes('ion torpedo') || (weaponKey.includes('ion') && weaponName.includes('torpedo'))) {
+    if (weaponName.includes('ion torpedo') || weaponKey.includes('ion') && (weaponName.includes('torpedo') || weaponKey.includes('torpedo'))) {
       return 'ion';
     }
 
@@ -1364,7 +1404,7 @@ const WeaponsStation: React.FC = () => {
 
   // Clean charge recovery and cooling system
   useEffect(() => {
-    console.log('🚀 SETTING UP CHARGE RECOVERY SYSTEM');
+    console.log(' SETTING UP CHARGE RECOVERY SYSTEM');
 
     const chargeInterval = setInterval(() => {
       setDynamicWeaponModules(prev =>
@@ -1376,7 +1416,7 @@ const WeaponsStation: React.FC = () => {
             const chargeRate = 2.0; // Fixed 2% per 100ms for testing visibility
             newModule.chargeLevel = Math.min(100, newModule.chargeLevel + chargeRate);
 
-            console.log(`🔋 CHARGING: ${newModule.weaponData.name} ${newModule.chargeLevel.toFixed(1)}%`);
+            console.log(` CHARGING: ${newModule.weaponData.name} ${newModule.chargeLevel.toFixed(1)}%`);
 
             // Update status when charging
             if (newModule.chargeLevel < 100 && newModule.status === 'ready') {
@@ -1579,6 +1619,18 @@ const WeaponsStation: React.FC = () => {
     <Container onClick={enableAudio}>
       <StationHeader>WEAPONS CONTROL</StationHeader>
 
+      {/* Zeroing System */}
+      <ZeroingSystem 
+        ref={zeroingSystemRef}
+        onCalibrationComplete={handleCalibrationComplete}
+      />
+
+      {/* Zeroing System Overlay */}
+      <ZeroingSystem 
+        ref={zeroingSystemRef} 
+        onCalibrationComplete={handleCalibrationComplete}
+      />
+      
       {/* Collapsible and Draggable Weapon Management Dropdowns */}
 
       {/* Add Weapon Module Dropdown */}
@@ -1877,6 +1929,14 @@ const WeaponsStation: React.FC = () => {
                     🔄 RELOAD
                   </FireButton>
                 )}
+
+                <FireButton
+                  $variant="secondary"
+                  onClick={() => startZeroingExercise(module.id, 'novice')}
+                  style={{ fontSize: '0.8em', padding: '8px 12px' }}
+                >
+                  🎯 ZERO
+                </FireButton>
               </div>
             </WeaponCard>
           </ModuleWrapper>
@@ -2228,6 +2288,12 @@ const WeaponsStation: React.FC = () => {
           </FireButton>
         </ControlGrid>
       </div>
+
+      {/* Zeroing System */}
+      <ZeroingSystem 
+        ref={zeroingSystemRef}
+        onCalibrationComplete={handleCalibrationComplete}
+      />
 
       {/* Hidden audio element */}
       <audio ref={audioRef} preload="auto">
