@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { io, Socket } from 'socket.io-client';
-import { ZeroingSystem, ZeroingSystemRef } from './Zeroing';
+
+
 
 // Types for weapons station
 interface WeaponsState {
@@ -323,9 +324,9 @@ const ChargeBar = styled.div<{ $level: number; $maxLevel: number }>`
     height: 100%;
     width: ${props => (props.$level / props.$maxLevel) * 100}%;
     background: linear-gradient(90deg, 
-      var(--weapon-red) 0%, 
+      var(--weapon-green) 0%, 
       var(--weapon-orange) 50%, 
-      var(--weapon-green) 100%
+      var(--weapon-red) 100%
     );
     transition: width 0.3s ease;
   }
@@ -749,20 +750,162 @@ const RemoveButton = styled(AddButton)`
   }
 `;
 
+// Animated components to fix styled-components keyframe error
+const OverheatingText = styled.div`
+  color: var(--weapon-red);
+  font-size: 0.7em;
+  text-align: center;
+  margin-top: 2px;
+  animation: ${alertBlink} 1s infinite;
+`;
+
+const AlertIndicator = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  background: var(--weapon-red);
+  border: 2px solid var(--weapon-red);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  animation: ${alertBlink} 1s infinite;
+`;
+
+const SystemOverheatedText = styled.div`
+  color: var(--weapon-red);
+  font-weight: bold;
+  text-align: center;
+  margin-top: 5px;
+  animation: ${alertBlink} 1s infinite;
+`;
+
+// Projectile effect animations
+const beamFire = keyframes`
+  0% { 
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--angle)) scaleY(0);
+  }
+  50% { 
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--angle)) scaleY(1);
+  }
+  100% { 
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--angle)) scaleY(1);
+  }
+`;
+
+const projectileFly = keyframes`
+  0% { 
+    opacity: 1;
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(0);
+  }
+  100% { 
+    opacity: 0;
+    transform: translate(-50%, -50%) rotate(var(--angle)) translateY(-200px);
+  }
+`;
+
+// Projectile effect styled components
+const BeamEffect = styled.div<{ $angle: number }>`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 150px;
+  background: linear-gradient(0deg, transparent, var(--weapon-red), var(--weapon-red), transparent);
+  transform-origin: bottom center;
+  --angle: ${props => props.$angle}deg;
+  animation: ${beamFire} 0.3s ease-out;
+  pointer-events: none;
+  z-index: 10;
+`;
+
+const MissileEffect = styled.div<{ $angle: number }>`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 8px;
+  height: 16px;
+  background: var(--weapon-orange);
+  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+  transform-origin: center center;
+  --angle: ${props => props.$angle}deg;
+  animation: ${projectileFly} 1.5s ease-out;
+  pointer-events: none;
+  z-index: 10;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -8px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 4px;
+    height: 8px;
+    background: var(--weapon-red);
+    border-radius: 50%;
+  }
+`;
+
+const GrenadeEffect = styled.div<{ $angle: number }>`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  background: var(--weapon-green);
+  border-radius: 50%;
+  transform-origin: center center;
+  --angle: ${props => props.$angle}deg;
+  animation: ${projectileFly} 1.2s ease-out;
+  pointer-events: none;
+  z-index: 10;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: 4px;
+    background: var(--weapon-yellow);
+    border-radius: 50%;
+  }
+`;
+
+const TorpedoEffect = styled.div<{ $angle: number }>`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 12px;
+  height: 20px;
+  background: var(--weapon-blue);
+  border-radius: 60% 60% 40% 40%;
+  transform-origin: center center;
+  --angle: ${props => props.$angle}deg;
+  animation: ${projectileFly} 2s ease-out;
+  pointer-events: none;
+  z-index: 10;
+  
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: -6px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 6px;
+    height: 6px;
+    background: var(--weapon-yellow);
+    border-radius: 50%;
+  }
+`;
+
 // Main Component
 const WeaponsStation: React.FC = () => {
-  // Zeroing System Ref
-  const zeroingSystemRef = useRef<ZeroingSystemRef>(null);
-  const [showZeroingSystem, setShowZeroingSystem] = useState(false);
   console.log('🎯 WEAPONS STATION COMPONENT LOADING'); // Debug: Check if component loads
-
-  // Start zeroing for the currently selected weapon
-  const startZeroing = (weaponId: string) => {
-    if (zeroingSystemRef.current) {
-      zeroingSystemRef.current.startZeroingExercise(weaponId, 'intermediate');
-      setShowZeroingSystem(true);
-    }
-  };
 
   const [socket, setSocket] = useState<Socket | null>(null);
   const [weaponsState, setWeaponsState] = useState<WeaponsState>({
@@ -828,6 +971,15 @@ const WeaponsStation: React.FC = () => {
   const [selectedWeaponToAdd, setSelectedWeaponToAdd] = useState<string>('');
   const [selectedModuleToRemove, setSelectedModuleToRemove] = useState<string>('');
 
+  // Projectile effects state
+  interface ProjectileEffect {
+    id: string;
+    type: 'beam' | 'missile' | 'grenade' | 'torpedo';
+    angle: number;
+    startTime: number;
+  }
+  const [activeProjectiles, setActiveProjectiles] = useState<ProjectileEffect[]>([]);
+
   // Dropdown panel state
   const [dropdownPositions, setDropdownPositions] = useState<{ [key: string]: ModulePosition }>({
     addWeaponPanel: { x: 20, y: 20, zIndex: 1000 },
@@ -838,32 +990,203 @@ const WeaponsStation: React.FC = () => {
     removeWeaponPanel: false
   });
 
-  // Zeroing system functions
-  const handleCalibrationComplete = (weaponId: string, accuracyBonus: number) => {
-    // Apply accuracy bonus to the weapon
-    setDynamicWeaponModules(prev => 
-      prev.map(module => 
-        module.id === weaponId 
-          ? { 
-              ...module, 
-              weaponData: { 
-                ...module.weaponData, 
-                qualities: [
-                  ...module.weaponData.qualities.filter(q => !q.startsWith('ACCURATE')),
-                  `ACCURATE ${Math.min(3, Math.ceil(accuracyBonus / 10))}`
-                ]
-              } 
-            } 
-          : module
-      )
-    );
-    console.log(`Applied +${accuracyBonus}% accuracy bonus to weapon ${weaponId}`);
+
+
+  // Weapon assignment functions
+  const assignToPrimaryWeapons = (moduleId: string) => {
+    const module = dynamicWeaponModules.find(m => m.id === moduleId);
+    if (!module) return;
+
+    const newWeapon: WeaponSystem = {
+      id: `primary_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: module.weaponData.name,
+      type: module.weaponData.type.toLowerCase() as 'laser' | 'ion' | 'plasma' | 'particle',
+      damage: module.weaponData.damage,
+      range: parseRange(module.weaponData.range),
+      accuracy: 85 + (module.weaponData.qualities.find(q => q.startsWith('ACCURATE')) ?
+        parseInt(module.weaponData.qualities.find(q => q.startsWith('ACCURATE'))?.split(' ')[1] || '0') * 5 : 0),
+      chargeLevel: 100,
+      cooldown: 0,
+      ammunition: module.ammunition,
+      maxAmmo: module.maxAmmo,
+      status: 'ready'
+    };
+
+    setWeaponsState(prev => ({
+      ...prev,
+      weapons: {
+        ...prev.weapons,
+        primaryWeapons: [...prev.weapons.primaryWeapons, newWeapon]
+      }
+    }));
+
+    console.log(`Assigned ${module.weaponData.name} to Primary Weapons`);
   };
 
-  const startZeroingExercise = (weaponId: string, difficulty: 'novice' | 'intermediate' | 'expert' | 'ace' = 'novice') => {
-    if (zeroingSystemRef.current && zeroingSystemRef.current.startZeroingExercise) {
-      zeroingSystemRef.current.startZeroingExercise(weaponId, difficulty);
+  const assignToSecondaryWeapons = (moduleId: string) => {
+    const module = dynamicWeaponModules.find(m => m.id === moduleId);
+    if (!module) return;
+
+    const newWeapon: WeaponSystem = {
+      id: `secondary_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      name: module.weaponData.name,
+      type: module.weaponData.type.toLowerCase() as 'laser' | 'ion' | 'plasma' | 'particle',
+      damage: module.weaponData.damage,
+      range: parseRange(module.weaponData.range),
+      accuracy: 85 + (module.weaponData.qualities.find(q => q.startsWith('ACCURATE')) ?
+        parseInt(module.weaponData.qualities.find(q => q.startsWith('ACCURATE'))?.split(' ')[1] || '0') * 5 : 0),
+      chargeLevel: 100,
+      cooldown: 0,
+      ammunition: module.ammunition,
+      maxAmmo: module.maxAmmo,
+      status: 'ready'
+    };
+
+    setWeaponsState(prev => ({
+      ...prev,
+      weapons: {
+        ...prev.weapons,
+        secondaryWeapons: [...prev.weapons.secondaryWeapons, newWeapon]
+      }
+    }));
+
+    console.log(`Assigned ${module.weaponData.name} to Secondary Weapons`);
+  };
+
+  // Helper function to parse range string to number
+  const parseRange = (rangeStr: string): number => {
+    switch (rangeStr.toLowerCase()) {
+      case 'close': return 500;
+      case 'short': return 1000;
+      case 'medium': return 2000;
+      case 'long': return 4000;
+      case 'extreme': return 8000;
+      default: return 2000;
     }
+  };
+
+  // Fire functions for primary and secondary weapons
+  const firePrimaryWeapon = (weaponId: string) => {
+    // Find the weapon being fired to create projectile effect
+    const weaponToFire = weaponsState.weapons.primaryWeapons.find(w => w.id === weaponId);
+
+    setWeaponsState(prev => ({
+      ...prev,
+      weapons: {
+        ...prev.weapons,
+        primaryWeapons: prev.weapons.primaryWeapons.map(weapon =>
+          weapon.id === weaponId && weapon.status === 'ready'
+            ? {
+              ...weapon,
+              status: 'cooling',
+              cooldown: 3,
+              chargeLevel: Math.max(0, weapon.chargeLevel - 25),
+              ammunition: weapon.ammunition > 0 ? weapon.ammunition - 1 : weapon.ammunition
+            }
+            : weapon
+        ),
+        heatLevel: Math.min(100, prev.weapons.heatLevel + 5)
+      }
+    }));
+
+    // Create projectile effect
+    if (weaponToFire) {
+      createProjectileEffect(weaponToFire.name, weaponToFire.type);
+    }
+
+    emitAction('fire_primary_weapon', { weaponId });
+  };
+
+  const fireSecondaryWeapon = (weaponId: string) => {
+    // Find the weapon being fired to create projectile effect
+    const weaponToFire = weaponsState.weapons.secondaryWeapons.find(w => w.id === weaponId);
+
+    setWeaponsState(prev => ({
+      ...prev,
+      weapons: {
+        ...prev.weapons,
+        secondaryWeapons: prev.weapons.secondaryWeapons.map(weapon =>
+          weapon.id === weaponId && weapon.status === 'ready'
+            ? {
+              ...weapon,
+              status: 'cooling',
+              cooldown: 3,
+              ammunition: weapon.ammunition > 0 ? weapon.ammunition - 1 : weapon.ammunition
+            }
+            : weapon
+        ),
+        heatLevel: Math.min(100, prev.weapons.heatLevel + 5)
+      }
+    }));
+
+    // Create projectile effect
+    if (weaponToFire) {
+      createProjectileEffect(weaponToFire.name, weaponToFire.type);
+    }
+
+    emitAction('fire_secondary_weapon', { weaponId });
+  };
+
+  // Clear all weapons from Primary and Secondary modules
+  const clearAllAssignedWeapons = () => {
+    const confirmClear = window.confirm(
+      'Are you sure you want to remove ALL weapons from Primary and Secondary weapon modules? This action cannot be undone.'
+    );
+
+    if (confirmClear) {
+      setWeaponsState(prev => ({
+        ...prev,
+        weapons: {
+          ...prev.weapons,
+          primaryWeapons: [],
+          secondaryWeapons: []
+        }
+      }));
+      console.log('Cleared all weapons from Primary and Secondary modules');
+      emitAction('clear_all_assigned_weapons', {});
+    }
+  };
+
+  // Projectile effect functions
+  const determineProjectileType = (weaponName: string, weaponType: string): 'beam' | 'missile' | 'grenade' | 'torpedo' => {
+    const name = weaponName.toLowerCase();
+    const type = weaponType.toLowerCase();
+
+    // Check for specific weapon types
+    if (name.includes('torpedo') || name.includes('proton')) return 'torpedo';
+    if (name.includes('missile') || name.includes('concussion')) return 'missile';
+    if (name.includes('grenade') || name.includes('launcher')) return 'grenade';
+    if (name.includes('rocket')) return 'missile';
+
+    // Check by weapon type
+    if (type === 'energy weapon') return 'beam';
+    if (type === 'vehicle' && (name.includes('missile') || name.includes('torpedo'))) return name.includes('torpedo') ? 'torpedo' : 'missile';
+    if (type === 'explosive') return 'grenade';
+
+    // Default to beam for energy weapons, missile for others
+    return type === 'energy weapon' ? 'beam' : 'missile';
+  };
+
+  const createProjectileEffect = (weaponName: string, weaponType: string) => {
+    const projectileType = determineProjectileType(weaponName, weaponType);
+    const angle = Math.random() * 360; // Random direction
+
+    const newProjectile: ProjectileEffect = {
+      id: `projectile_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: projectileType,
+      angle,
+      startTime: Date.now()
+    };
+
+    setActiveProjectiles(prev => [...prev, newProjectile]);
+
+    // Remove projectile after animation completes
+    const duration = projectileType === 'beam' ? 300 : projectileType === 'torpedo' ? 2000 : projectileType === 'missile' ? 1500 : 1200;
+    setTimeout(() => {
+      setActiveProjectiles(prev => prev.filter(p => p.id !== newProjectile.id));
+    }, duration);
+
+    console.log(`🚀 Fired ${projectileType} from ${weaponName} at ${angle.toFixed(1)}°`);
   };
 
   // Dropdown collapse and drag functions
@@ -1335,18 +1658,11 @@ const WeaponsStation: React.FC = () => {
     };
   }, []);
 
-  // Simulate weapon systems and targeting
+  // Simulate weapon systems and targeting (shields and heat only)
   useEffect(() => {
     const interval = setInterval(() => {
       setWeaponsState(prev => {
         const newState = { ...prev };
-
-        // Weapon cooldowns
-        newState.weapons.primaryWeapons = prev.weapons.primaryWeapons.map(weapon => ({
-          ...weapon,
-          cooldown: Math.max(0, weapon.cooldown - 1),
-          status: weapon.cooldown > 0 ? 'cooling' : 'ready'
-        }));
 
         // Heat dissipation - gradual cooling based on current heat level
         const currentHeat = prev.weapons.heatLevel;
@@ -1375,29 +1691,7 @@ const WeaponsStation: React.FC = () => {
 
         return newState;
       });
-
-      // Cool down individual dynamic weapon modules
-      setDynamicWeaponModules(prev =>
-        prev.map(module => {
-          const newModule = { ...module };
-
-          // Weapon cooldown (still per second)
-          if (newModule.cooldown > 0) {
-            newModule.cooldown = Math.max(0, newModule.cooldown - 1);
-            if (newModule.cooldown === 0 && newModule.status === 'cooling') {
-              newModule.status = 'ready';
-            }
-          }
-
-          // Individual weapon heat dissipation - remove main cooling to avoid conflicts
-          // (Heat dissipation now handled by the smooth cooling system only)
-
-          return newModule;
-        })
-      );
     }, 1000);
-
-
 
     return () => clearInterval(interval);
   }, []);
@@ -1451,8 +1745,43 @@ const WeaponsStation: React.FC = () => {
         })
       );
 
-      // Global heat system cooling with more visible changes
+      // Unified cooling system for Primary and Secondary weapons + Global heat
       setWeaponsState(prev => {
+        const newState = { ...prev };
+
+        // Primary weapons cooling (cooldown only, no charge recovery)
+        newState.weapons.primaryWeapons = prev.weapons.primaryWeapons.map(weapon => {
+          const newWeapon = { ...weapon };
+
+          // Cooldown reduction (0.1 per 100ms = 1 per second)
+          if (newWeapon.cooldown > 0) {
+            newWeapon.cooldown = Math.max(0, newWeapon.cooldown - 0.1);
+            if (newWeapon.cooldown === 0 && newWeapon.status === 'cooling') {
+              newWeapon.status = 'ready';
+            }
+          }
+
+          return newWeapon;
+        });
+
+        // Secondary weapons cooling (cooldown only, no charge recovery)
+        newState.weapons.secondaryWeapons = prev.weapons.secondaryWeapons.map(weapon => {
+          const newWeapon = { ...weapon };
+
+          // Cooldown reduction (0.1 per 100ms = 1 per second)
+          if (newWeapon.cooldown > 0) {
+            console.log(`🔧 Secondary Weapon ${newWeapon.name} cooling: ${newWeapon.cooldown.toFixed(1)} -> ${Math.max(0, newWeapon.cooldown - 0.1).toFixed(1)}`);
+            newWeapon.cooldown = Math.max(0, newWeapon.cooldown - 0.1);
+            if (newWeapon.cooldown === 0 && newWeapon.status === 'cooling') {
+              console.log(`✅ Secondary Weapon ${newWeapon.name} ready!`);
+              newWeapon.status = 'ready';
+            }
+          }
+
+          return newWeapon;
+        });
+
+        // Global heat system cooling
         if (prev.weapons.heatLevel > 0.1) {
           const currentHeat = prev.weapons.heatLevel;
           let coolingRate = 1.0; // More aggressive base cooling rate
@@ -1468,15 +1797,10 @@ const WeaponsStation: React.FC = () => {
             coolingRate = 1.5; // Passive cooling
           }
 
-          return {
-            ...prev,
-            weapons: {
-              ...prev.weapons,
-              heatLevel: Math.max(0, currentHeat - coolingRate)
-            }
-          };
+          newState.weapons.heatLevel = Math.max(0, currentHeat - coolingRate);
         }
-        return prev;
+
+        return newState;
       });
     }, 100); // Update every 100ms for very smooth and visible cooling
 
@@ -1619,18 +1943,6 @@ const WeaponsStation: React.FC = () => {
     <Container onClick={enableAudio}>
       <StationHeader>WEAPONS CONTROL</StationHeader>
 
-      {/* Zeroing System */}
-      <ZeroingSystem 
-        ref={zeroingSystemRef}
-        onCalibrationComplete={handleCalibrationComplete}
-      />
-
-      {/* Zeroing System Overlay */}
-      <ZeroingSystem 
-        ref={zeroingSystemRef} 
-        onCalibrationComplete={handleCalibrationComplete}
-      />
-      
       {/* Collapsible and Draggable Weapon Management Dropdowns */}
 
       {/* Add Weapon Module Dropdown */}
@@ -1723,6 +2035,22 @@ const WeaponsStation: React.FC = () => {
                   >
                     🗑️ Remove Module
                   </RemoveButton>
+
+                  <div style={{ margin: '15px 0', borderTop: '1px solid var(--weapon-blue)', paddingTop: '15px' }}>
+                    <DropdownLabel style={{ fontSize: '0.8em', color: 'var(--weapon-orange)' }}>
+                      Clear Assigned Weapons
+                    </DropdownLabel>
+                    <RemoveButton
+                      onClick={clearAllAssignedWeapons}
+                      style={{
+                        background: 'var(--weapon-red)',
+                        fontSize: '0.9em',
+                        padding: '8px'
+                      }}
+                    >
+                      💥 CLEAR ALL PRIMARY & SECONDARY
+                    </RemoveButton>
+                  </div>
                 </DropdownContent>
               </>
             )}
@@ -1803,15 +2131,9 @@ const WeaponsStation: React.FC = () => {
                 </div>
                 <ChargeBar $level={module.heatLevel} $maxLevel={module.maxHeat} />
                 {module.heatLevel >= module.maxHeat * 0.9 && (
-                  <div style={{
-                    color: 'var(--weapon-red)',
-                    fontSize: '0.7em',
-                    textAlign: 'center',
-                    marginTop: '2px',
-                    animation: `${alertBlink} 1s infinite`
-                  }}>
+                  <OverheatingText>
                     OVERHEATING
-                  </div>
+                  </OverheatingText>
                 )}
               </div>
 
@@ -1894,6 +2216,9 @@ const WeaponsStation: React.FC = () => {
                         }));
                       }
 
+                      // Create projectile effect
+                      createProjectileEffect(module.weaponData.name, module.weaponData.type);
+
                       emitAction('fire_dynamic_weapon', { moduleId: module.id, weaponKey: module.weaponKey });
                     }
                   }}
@@ -1929,13 +2254,23 @@ const WeaponsStation: React.FC = () => {
                     🔄 RELOAD
                   </FireButton>
                 )}
+              </div>
 
+              {/* Assignment Buttons */}
+              <div style={{ marginTop: '10px', display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                <FireButton
+                  $variant="primary"
+                  onClick={() => assignToPrimaryWeapons(module.id)}
+                  style={{ fontSize: '0.7em', padding: '6px 10px', flex: '1' }}
+                >
+                  ➤ PRIMARY
+                </FireButton>
                 <FireButton
                   $variant="secondary"
-                  onClick={() => startZeroingExercise(module.id, 'novice')}
-                  style={{ fontSize: '0.8em', padding: '8px 12px' }}
+                  onClick={() => assignToSecondaryWeapons(module.id)}
+                  style={{ fontSize: '0.7em', padding: '6px 10px', flex: '1' }}
                 >
-                  🎯 ZERO
+                  ➤ SECONDARY
                 </FireButton>
               </div>
             </WeaponCard>
@@ -1960,10 +2295,18 @@ const WeaponsStation: React.FC = () => {
                 <WeaponStatus $status={weapon.status}>
                   {weapon.status.toUpperCase()}
                 </WeaponStatus>
-                <ChargeBar $level={weapon.chargeLevel} $maxLevel={100} />
-                <div style={{ fontSize: '0.9em', color: '#ccc' }}>
+                <ChargeBar $level={weapon.cooldown > 0 ? (3 - weapon.cooldown) / 3 * 100 : 100} $maxLevel={100} />
+                <div style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '10px' }}>
                   Damage: {weapon.damage} | Range: {weapon.range}m | Accuracy: {weapon.accuracy}%
                 </div>
+                <FireButton
+                  $variant="primary"
+                  onClick={() => firePrimaryWeapon(weapon.id)}
+                  disabled={weapon.status !== 'ready' || (weapon.ammunition !== -1 && weapon.ammunition <= 0)}
+                  style={{ fontSize: '0.8em', padding: '6px 12px', width: '100%' }}
+                >
+                  🔥 FIRE PRIMARY
+                </FireButton>
               </div>
             ))}
           </WeaponCard>
@@ -1987,10 +2330,18 @@ const WeaponsStation: React.FC = () => {
                 <WeaponStatus $status={weapon.status}>
                   {weapon.status.toUpperCase()}
                 </WeaponStatus>
-                <ChargeBar $level={weapon.chargeLevel} $maxLevel={100} />
-                <div style={{ fontSize: '0.9em', color: '#ccc' }}>
+                <ChargeBar $level={weapon.cooldown > 0 ? (3 - weapon.cooldown) / 3 * 100 : 100} $maxLevel={100} />
+                <div style={{ fontSize: '0.9em', color: '#ccc', marginBottom: '10px' }}>
                   Ammo: {weapon.ammunition}/{weapon.maxAmmo}
                 </div>
+                <FireButton
+                  $variant="secondary"
+                  onClick={() => fireSecondaryWeapon(weapon.id)}
+                  disabled={weapon.status !== 'ready' || (weapon.ammunition !== -1 && weapon.ammunition <= 0)}
+                  style={{ fontSize: '0.8em', padding: '6px 12px', width: '100%' }}
+                >
+                  🔥 FIRE SECONDARY
+                </FireButton>
               </div>
             ))}
           </WeaponCard>
@@ -2101,20 +2452,25 @@ const WeaponsStation: React.FC = () => {
                 );
               })}
 
+              {/* Projectile effects */}
+              {activeProjectiles.map(projectile => {
+                switch (projectile.type) {
+                  case 'beam':
+                    return <BeamEffect key={projectile.id} $angle={projectile.angle} />;
+                  case 'missile':
+                    return <MissileEffect key={projectile.id} $angle={projectile.angle} />;
+                  case 'grenade':
+                    return <GrenadeEffect key={projectile.id} $angle={projectile.angle} />;
+                  case 'torpedo':
+                    return <TorpedoEffect key={projectile.id} $angle={projectile.angle} />;
+                  default:
+                    return null;
+                }
+              })}
+
               {/* Current target indicator */}
               {weaponsState.targeting.currentTarget && (
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '50%',
-                    left: '50%',
-                    width: '20px',
-                    height: '20px',
-                    border: '2px solid var(--weapon-red)',
-                    transform: 'translate(-50%, -50%)',
-                    animation: `${alertBlink} 1s infinite`
-                  }}
-                />
+                <AlertIndicator />
               )}
             </TargetingDisplay>
 
@@ -2212,15 +2568,9 @@ const WeaponsStation: React.FC = () => {
               </div>
               <ChargeBar $level={weaponsState.weapons.heatLevel} $maxLevel={100} />
               {weaponsState.weapons.heatLevel >= 95 && (
-                <div style={{
-                  color: 'var(--weapon-red)',
-                  fontSize: '0.8em',
-                  textAlign: 'center',
-                  marginTop: '5px',
-                  animation: `${alertBlink} 1s infinite`
-                }}>
+                <SystemOverheatedText>
                   WEAPONS OVERHEATED - COOLING DOWN
-                </div>
+                </SystemOverheatedText>
               )}
             </div>
 
@@ -2235,65 +2585,7 @@ const WeaponsStation: React.FC = () => {
         </ModuleWrapper>
       </DraggableModule>
 
-      {/* Fixed Fire Control Panel */}
-      <div style={{
-        position: 'fixed',
-        bottom: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1000
-      }}>
-        <ControlGrid>
-          <FireButton
-            $variant="primary"
-            onClick={firePrimaryWeapons}
-            disabled={weaponsState.targeting.lockStatus !== 'locked' || weaponsState.weapons.heatLevel > 90}
-          >
-            🔥 Fire Primary Weapons
-          </FireButton>
 
-          <FireButton
-            $variant="secondary"
-            onClick={fireSecondaryWeapons}
-            disabled={weaponsState.targeting.lockStatus !== 'locked' || weaponsState.weapons.heatLevel > 90}
-          >
-            ⚡ Fire Secondary Weapons
-          </FireButton>
-
-          <FireButton
-            $variant="torpedo"
-            onClick={fireTorpedo}
-            disabled={weaponsState.targeting.lockStatus !== 'locked' ||
-              weaponsState.weapons.torpedoes[`${weaponsState.weapons.torpedoes.selectedType}Torpedoes` as keyof TorpedoSystem] === 0}
-          >
-            🚀 Launch Torpedo
-          </FireButton>
-
-          <FireButton
-            $variant="emergency"
-            onClick={() => {
-              setWeaponsState(prev => ({
-                ...prev,
-                weapons: {
-                  ...prev.weapons,
-                  heatLevel: 0,
-                  primaryWeapons: prev.weapons.primaryWeapons.map(w => ({ ...w, cooldown: 0, status: 'ready' })),
-                  secondaryWeapons: prev.weapons.secondaryWeapons.map(w => ({ ...w, cooldown: 0, status: 'ready' }))
-                }
-              }));
-              emitAction('emergency_weapon_reset');
-            }}
-          >
-            🛑 Emergency Reset
-          </FireButton>
-        </ControlGrid>
-      </div>
-
-      {/* Zeroing System */}
-      <ZeroingSystem 
-        ref={zeroingSystemRef}
-        onCalibrationComplete={handleCalibrationComplete}
-      />
 
       {/* Hidden audio element */}
       <audio ref={audioRef} preload="auto">
