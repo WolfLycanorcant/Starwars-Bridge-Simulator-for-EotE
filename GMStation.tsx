@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 import { io, Socket } from 'socket.io-client';
 import { GameState } from '../../types';
 
@@ -165,6 +165,47 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
   const [messageFrom, setMessageFrom] = useState('Command');
   const [messageAnalysis, setMessageAnalysis] = useState('normal');
   const [commsTransmissions, setCommsTransmissions] = useState<CommunicationMessage[]>([]);
+  const [selectedGalaxyRegion, setSelectedGalaxyRegion] = useState('Core Worlds');
+
+  // Moff names array (sample from the 1024 lines in moff_names_with_numbers.txt)
+  const moffNamesArray = [
+    "3695. Contact the staff of Moff Avenalem Kyrrorin for any information",
+    "266. Contact the staff of Moff Avenanan Vorasar for any information",
+    "5854. Contact the staff of Moff Avenasaal Cassiran for any information",
+    "7579. Contact the staff of Moff Avenasek Threxomus for any information",
+    "3698. Contact the staff of Moff Avenenar Tarkanar for any information",
+    "8492. Contact the staff of Moff Avenevor Dornonan for any information",
+    "8742. Contact the staff of Moff Avenevoth Zornometh for any information",
+    "5004. Contact the staff of Moff Avenilaal Droakith for any information",
+    "1604. Contact the staff of Moff Aveniless Hexasor for any information",
+    "6684. Contact the staff of Moff Aveniraal Krayetax for any information",
+    "4808. Contact the staff of Moff Avenirek Fenoneus for any information",
+    "1657. Contact the staff of Moff Avenisess Kyrronen for any information",
+    "3679. Contact the staff of Moff Avenomin Nossakith for any information",
+    "6679. Contact the staff of Moff Avenonem Krayomaal for any information",
+    "6239. Contact the staff of Moff Avenonen Krayenoth for any information",
+    "5713. Contact the staff of Moff Avenosith Sarnalius for any information",
+    "6588. Contact the staff of Moff Brakakess Droaloth for any information",
+    "3028. Contact the staff of Moff Brakanok Tarkosoth for any information",
+    "1992. Contact the staff of Moff Brakaror Threxasan for any information",
+    "5408. Contact the staff of Moff Brakasek Dornevor for any information",
+    "1241. Contact the staff of Moff Braketek Sarnulok for any information",
+    "8931. Contact the staff of Moff Brakisin Thalevok for any information",
+    "7883. Contact the staff of Moff Brakixan Kelinen for any information",
+    "7184. Contact the staff of Moff Brakomess Velixar for any information",
+    "3608. Contact the staff of Moff Brakomess Zornevor for any information",
+    "7484. Contact the staff of Moff Brakonok Varnonem for any information",
+    "5846. Contact the staff of Moff Brakorius Ruskumoth for any information",
+    "765. Contact the staff of Moff Brakosar Kyrrulan for any information",
+    "6308. Contact the staff of Moff Brakulus Nossanan for any information",
+    "2275. Contact the staff of Moff Brenetax Ruskakorn for any information"
+  ];
+
+  // Function to get random moff name
+  const getRandomSectorInfo = () => {
+    const randomIndex = Math.floor(Math.random() * moffNamesArray.length);
+    return moffNamesArray[randomIndex];
+  };
 
   // Frequency macros for different channels
   const frequencyMacros: FrequencyMacro[] = [
@@ -224,7 +265,7 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
     });
 
     /* Listen for communications broadcasts */
-    s.on('comm_broadcast', (data: { type: string; value: number; room: string; source: string }) => {
+    s.on('comm_broadcast', (data: { type: string; value: any; room: string; source: string }) => {
       console.log('GM received communications broadcast:', data);
 
       if (data.source === 'communications') {
@@ -245,6 +286,28 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                 communications: {
                   ...currentGameState.communications,
                   primaryFrequency: data.value
+                }
+              });
+            }
+            break;
+          case 'analysis_mode_update':
+            // Update GM display when communications station changes analysis mode
+            console.log('📊 GM received analysis mode update:', data.value);
+            setMessageAnalysis(data.value);
+            setStates((prev) => ({
+              ...prev,
+              communications: {
+                ...prev.communications,
+                analysisMode: data.value
+              }
+            }));
+
+            // Update parent component if available
+            if (onGMUpdate) {
+              onGMUpdate({
+                communications: {
+                  ...currentGameState.communications,
+                  analysisMode: data.value
                 }
               });
             }
@@ -302,6 +365,94 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
           </PanelHeader>
           {!collapsed.comms && (
             <>
+              {/* Frequency Slider */}
+              <div style={{ marginBottom: 15 }}>
+                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 8, fontWeight: 'bold' }}>
+                  FREQUENCY CONTROL:
+                </div>
+                <div style={{
+                  background: 'rgba(0, 0, 0, 0.6)',
+                  border: '1px solid var(--gm-blue)',
+                  borderRadius: '4px',
+                  padding: '10px'
+                }}>
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: '8px'
+                  }}>
+                    <span style={{ fontSize: '10px', color: '#888888' }}>0.0</span>
+                    <span style={{
+                      fontSize: '14px',
+                      color: 'var(--gm-green)',
+                      fontWeight: 'bold',
+                      textShadow: '0 0 5px currentColor'
+                    }}>
+                      {(states.communications?.primaryFrequency ?? 121.5).toFixed(1)} MHz
+                    </span>
+                    <span style={{ fontSize: '10px', color: '#888888' }}>999.9</span>
+                  </div>
+
+                  <input
+                    type="range"
+                    min="0"
+                    max="999.9"
+                    step="0.1"
+                    value={states.communications?.primaryFrequency ?? 121.5}
+                    onChange={(e) => {
+                      const newFreq = parseFloat(e.target.value);
+                      // Update GM's local state
+                      setStates(prev => ({
+                        ...prev,
+                        communications: {
+                          ...prev.communications,
+                          primaryFrequency: newFreq
+                        }
+                      }));
+                      // Broadcast to Communications station
+                      socket?.emit('comm_broadcast', {
+                        type: 'frequency_update',
+                        value: newFreq,
+                        room: roomRef.current,
+                        source: 'gm',
+                      });
+                      // Update parent component if available
+                      if (onGMUpdate) {
+                        onGMUpdate({
+                          communications: {
+                            ...currentGameState.communications,
+                            primaryFrequency: newFreq
+                          }
+                        });
+                      }
+                    }}
+                    style={{
+                      width: '100%',
+                      height: '6px',
+                      background: 'linear-gradient(90deg, #ff0000, #ff8800, #ffff00, #00ff00, #0088ff, #8800ff)',
+                      borderRadius: '3px',
+                      outline: 'none',
+                      cursor: 'pointer',
+                      accentColor: 'var(--gm-green)'
+                    }}
+                  />
+
+                  <div style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    marginTop: '6px',
+                    fontSize: '9px',
+                    color: '#666666'
+                  }}>
+                    <span>Emergency</span>
+                    <span>Command</span>
+                    <span>Tactical</span>
+                    <span>Override</span>
+                  </div>
+                </div>
+              </div>
+
               {/* Current Status */}
               <Row>
                 <span>Primary Freq:</span>
@@ -325,11 +476,11 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
               </Row>
 
               {/* Frequency Macros */}
-              <div style={{ marginTop: 15, marginBottom: 10 }}>
-                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 8, fontWeight: 'bold' }}>
+              <div style={{ marginTop: 10, marginBottom: 8 }}>
+                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 6, fontWeight: 'bold' }}>
                   FREQUENCY MACROS:
                 </div>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
                   {frequencyMacros.map(macro => (
                     <EmitButton
                       key={macro.id}
@@ -342,6 +493,14 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                           room: roomRef.current,
                           source: 'gm',
                         });
+                        // Update GM's local state to show the new frequency
+                        setStates(prev => ({
+                          ...prev,
+                          communications: {
+                            ...prev.communications,
+                            primaryFrequency: macro.frequency
+                          }
+                        }));
                         if (onGMUpdate) {
                           onGMUpdate({
                             communications: {
@@ -355,13 +514,153 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                         borderColor: macro.color,
                         color: macro.color,
                         fontSize: '0.7rem',
-                        padding: '4px 6px'
+                        padding: '3px 4px',
+                        margin: 0
                       }}
                       title={`${macro.description} - ${macro.frequency} MHz`}
                     >
                       {macro.name}
                     </EmitButton>
                   ))}
+                </div>
+              </div>
+
+              {/* MESSAGE COMPOSER */}
+              <div style={{ marginTop: 15, marginBottom: 10 }}>
+                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 8, fontWeight: 'bold' }}>
+                  MESSAGE COMPOSER:
+                </div>
+
+                {/* Priority selector */}
+                <select
+                  value={messagePriority}
+                  onChange={(e) => setMessagePriority(e.target.value as any)}
+                  style={{
+                    width: '100%',
+                    background: '#111',
+                    border: '1px solid var(--gm-blue)',
+                    color: '#eee',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    fontSize: '0.75rem',
+                    marginBottom: 6
+                  }}
+                >
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                  <option value="emergency">EMERGENCY</option>
+                </select>
+
+                {/* From field */}
+                <input
+                  type="text"
+                  placeholder="From (source)"
+                  value={messageFrom}
+                  onChange={(e) => setMessageFrom(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: '#111',
+                    border: '1px solid var(--gm-blue)',
+                    color: '#eee',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    fontSize: '0.75rem',
+                    marginBottom: 6
+                  }}
+                />
+
+                {/* Signal Analysis selector */}
+
+
+                {/* Message text */}
+                <textarea
+                  placeholder="Type transmission..."
+                  value={messageResponse}
+                  onChange={(e) => setMessageResponse(e.target.value)}
+                  style={{
+                    width: '100%',
+                    height: '60px',
+                    background: '#111',
+                    border: '1px solid var(--gm-blue)',
+                    color: '#eee',
+                    borderRadius: '4px',
+                    fontSize: '0.8rem',
+                    padding: '6px',
+                    resize: 'vertical',
+                    marginBottom: 6
+                  }}
+                />
+
+                {/* Send buttons */}
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <EmitButton
+                    onClick={() => {
+                      if (!messageResponse.trim()) return;
+                      const room = roomRef.current;
+                      const freq = states.communications?.primaryFrequency ?? 121.5;
+
+                      // use the *same* channel Comms already listens for
+                      socket?.emit('gm_broadcast', {
+                        type: 'new_message',
+                        value: {
+                          id: Date.now().toString(),
+                          from: messageFrom,              // <- dynamic
+                          to: 'All Stations',
+                          content: messageResponse,
+                          priority: messagePriority,
+                          frequency: freq,
+                          timestamp: Date.now(),
+                          analysisMode: messageAnalysis,        // <-- new
+                          onAir: `(${freq.toFixed(1)} MHz)`               // <-- new
+                        },
+                        room,
+                        source: 'gm'
+                      });
+                      setMessageResponse('');
+                    }}
+                  >
+                    Send Transmission
+                  </EmitButton>
+                </div>
+              </div>
+
+              {/* LIVE COMMUNICATION LOG */}
+              <div style={{ marginTop: 15, border: '1px solid var(--gm-blue)', borderRadius: 4, padding: 10 }}>
+                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 6 }}>COMMS TRANSMISSION LOG</div>
+                <div style={{ maxHeight: 120, overflowY: 'auto', fontSize: '0.7rem' }}>
+                  {commsTransmissions.length === 0 ? (
+                    <div style={{ color: '#666' }}>No transmissions yet</div>
+                  ) : (
+                    commsTransmissions.map(msg => (
+                      <div key={msg.id} style={{ marginBottom: 4 }}>
+                        <strong>{msg.from}</strong> → {msg.to}: {msg.content} <em>({msg.priority})</em> {msg.onAir}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Quick Actions */}
+              <div style={{ marginTop: 15 }}>
+                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 8, fontWeight: 'bold' }}>
+                  QUICK ACTIONS:
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                  <EmitButton onClick={() => emit('toggle_emergency_beacon', true, 'communications')}>
+                    Beacon ON
+                  </EmitButton>
+                  <EmitRed onClick={() => emit('toggle_emergency_beacon', false, 'communications')}>
+                    Beacon OFF
+                  </EmitRed>
+                  <EmitButton onClick={() => {
+                    // Clear only the GM's COMMS TRANSMISSION LOG
+                    setCommsTransmissions([]);
+                  }}>
+                    Clear Messages
+                  </EmitButton>
+                  <EmitRed onClick={() => emit('communications_blackout', true, 'communications')}>
+                    BLACKOUT
+                  </EmitRed>
                 </div>
               </div>
 
@@ -474,140 +773,71 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                 </div>
               </div>
 
-              {/* MESSAGE COMPOSER */}
-              <div style={{ marginTop: 15, marginBottom: 10 }}>
-                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 8, fontWeight: 'bold' }}>
-                  MESSAGE COMPOSER:
-                </div>
+              {/* Imperial Initialization Message Button */}
+              <div style={{ marginTop: 20 }}>
+                <EmitButton
+                  onClick={() => {
+                    const room = roomRef.current;
+                    const freq = states.communications?.primaryFrequency ?? 121.5;
+                    const moffInfo = getRandomSectorInfo();
 
-                {/* Priority selector */}
-                <select
-                  value={messagePriority}
-                  onChange={(e) => setMessagePriority(e.target.value as any)}
+                    // Create Imperial initialization message
+                    const imperialMessage = {
+                      id: Date.now().toString(),
+                      from: 'Imperial Command',
+                      to: 'All Stations',
+                      content: `Maintain current heading. Rebel activity detected in sector ${moffInfo}`,
+                      priority: 'high' as const,
+                      frequency: freq,
+                      timestamp: Date.now(),
+                      onAir: `(${freq.toFixed(1)} MHz)`
+                    };
+
+                    // Broadcast to Communications station
+                    socket?.emit('gm_broadcast', {
+                      type: 'new_message',
+                      value: imperialMessage,
+                      room,
+                      source: 'gm'
+                    });
+                  }}
                   style={{
                     width: '100%',
-                    background: '#111',
-                    border: '1px solid var(--gm-blue)',
-                    color: '#eee',
-                    padding: '4px 6px',
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    marginBottom: 6
+                    padding: '10px',
+                    fontSize: '0.8rem',
+                    fontWeight: 'bold'
                   }}
                 >
-                  <option value="normal">Normal</option>
-                  <option value="high">High</option>
-                  <option value="emergency">EMERGENCY</option>
-                </select>
-
-                {/* From field */}
-                <input
-                  type="text"
-                  placeholder="From (source)"
-                  value={messageFrom}
-                  onChange={(e) => setMessageFrom(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: '#111',
-                    border: '1px solid var(--gm-blue)',
-                    color: '#eee',
-                    padding: '4px 6px',
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    marginBottom: 6
-                  }}
-                />
-
-                {/* Signal Analysis selector */}
-
-
-                {/* Message text */}
-                <textarea
-                  placeholder="Type transmission..."
-                  value={messageResponse}
-                  onChange={(e) => setMessageResponse(e.target.value)}
-                  style={{
-                    width: '100%',
-                    height: '60px',
-                    background: '#111',
-                    border: '1px solid var(--gm-blue)',
-                    color: '#eee',
-                    borderRadius: '4px',
-                    fontSize: '0.8rem',
-                    padding: '6px',
-                    resize: 'vertical',
-                    marginBottom: 6
-                  }}
-                />
-
-                {/* Send buttons */}
-                <div style={{ display: 'flex', gap: 4 }}>
-                  <EmitButton
-                    onClick={() => {
-                      if (!messageResponse.trim()) return;
-                      const room = roomRef.current;
-                      const freq = states.communications?.primaryFrequency ?? 121.5;
-
-                      // use the *same* channel Comms already listens for
-                      socket?.emit('gm_broadcast', {
-                        type: 'new_message',
-                        value: {
-                          id: Date.now().toString(),
-                          from: messageFrom,              // <- dynamic
-                          to: 'All Stations',
-                          content: messageResponse,
-                          priority: messagePriority,
-                          frequency: freq,
-                          timestamp: Date.now(),
-                          analysisMode: messageAnalysis,        // <-- new
-                          onAir: `(${freq.toFixed(1)} MHz)`               // <-- new
-                        },
-                        room,
-                        source: 'gm'
-                      });
-                      setMessageResponse('');
-                    }}
-                  >
-                    Send Transmission
-                  </EmitButton>
-                </div>
+                  Imperial Initialization Message
+                </EmitButton>
               </div>
 
-              {/* Quick Actions */}
-              <div style={{ marginTop: 15 }}>
+              {/* Galaxy Region Selector */}
+              <div style={{ marginTop: 20 }}>
                 <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 8, fontWeight: 'bold' }}>
-                  QUICK ACTIONS:
+                  GALAXY REGION:
                 </div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                  <EmitButton onClick={() => emit('toggle_emergency_beacon', true, 'communications')}>
-                    Beacon ON
-                  </EmitButton>
-                  <EmitRed onClick={() => emit('toggle_emergency_beacon', false, 'communications')}>
-                    Beacon OFF
-                  </EmitRed>
-                  <EmitButton onClick={() => emit('clear_all_messages', true, 'communications')}>
-                    Clear Messages
-                  </EmitButton>
-                  <EmitRed onClick={() => emit('communications_blackout', true, 'communications')}>
-                    BLACKOUT
-                  </EmitRed>
-                </div>
-              </div>
-
-              {/* LIVE COMMUNICATION LOG */}
-              <div style={{ marginTop: 20, border: '1px solid var(--gm-blue)', borderRadius: 4, padding: 10 }}>
-                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 6 }}>COMMS TRANSMISSION LOG</div>
-                <div style={{ maxHeight: 120, overflowY: 'auto', fontSize: '0.7rem' }}>
-                  {commsTransmissions.length === 0 ? (
-                    <div style={{ color: '#666' }}>No transmissions yet</div>
-                  ) : (
-                    commsTransmissions.map(msg => (
-                      <div key={msg.id} style={{ marginBottom: 4 }}>
-                        <strong>{msg.from}</strong> → {msg.to}: {msg.content} <em>({msg.priority})</em> {msg.onAir}
-                      </div>
-                    ))
-                  )}
-                </div>
+                <select
+                  value={selectedGalaxyRegion}
+                  onChange={(e) => setSelectedGalaxyRegion(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: '#111',
+                    border: '1px solid var(--gm-blue)',
+                    color: '#eee',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    fontSize: '0.8rem'
+                  }}
+                >
+                  <option value="Core Worlds">Core Worlds</option>
+                  <option value="Colonies">Colonies</option>
+                  <option value="Inner Rim">Inner Rim</option>
+                  <option value="Mid Rim">Mid Rim</option>
+                  <option value="Outer Rim">Outer Rim</option>
+                  <option value="Wild Space">Wild Space</option>
+                  <option value="Unknown Regions">Unknown Regions</option>
+                </select>
               </div>
             </>
           )}

@@ -19,6 +19,48 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   const [currentFrequency, setCurrentFrequency] = useState(121.5);
   const [messageQueue, setMessageQueue] = useState<any[]>([]);
   const [currentAnalysis, setCurrentAnalysis] = useState('normal');
+  const [initialMessagesSent, setInitialMessagesSent] = useState(false);
+  const [moffNames, setMoffNames] = useState<string[]>([]);
+
+  // Moff names array (sample from the 1024 lines in moff_names_with_numbers.txt)
+  const moffNamesArray = [
+    "3695. Contact the staff of Moff Avenalem Kyrrorin for any information",
+    "266. Contact the staff of Moff Avenanan Vorasar for any information",
+    "5854. Contact the staff of Moff Avenasaal Cassiran for any information",
+    "7579. Contact the staff of Moff Avenasek Threxomus for any information",
+    "3698. Contact the staff of Moff Avenenar Tarkanar for any information",
+    "8492. Contact the staff of Moff Avenevor Dornonan for any information",
+    "8742. Contact the staff of Moff Avenevoth Zornometh for any information",
+    "5004. Contact the staff of Moff Avenilaal Droakith for any information",
+    "1604. Contact the staff of Moff Aveniless Hexasor for any information",
+    "6684. Contact the staff of Moff Aveniraal Krayetax for any information",
+    "4808. Contact the staff of Moff Avenirek Fenoneus for any information",
+    "1657. Contact the staff of Moff Avenisess Kyrronen for any information",
+    "3679. Contact the staff of Moff Avenomin Nossakith for any information",
+    "6679. Contact the staff of Moff Avenonem Krayomaal for any information",
+    "6239. Contact the staff of Moff Avenonen Krayenoth for any information",
+    "5713. Contact the staff of Moff Avenosith Sarnalius for any information",
+    "6588. Contact the staff of Moff Brakakess Droaloth for any information",
+    "3028. Contact the staff of Moff Brakanok Tarkosoth for any information",
+    "1992. Contact the staff of Moff Brakaror Threxasan for any information",
+    "5408. Contact the staff of Moff Brakasek Dornevor for any information",
+    "1241. Contact the staff of Moff Braketek Sarnulok for any information",
+    "8931. Contact the staff of Moff Brakisin Thalevok for any information",
+    "7883. Contact the staff of Moff Brakixan Kelinen for any information",
+    "7184. Contact the staff of Moff Brakomess Velixar for any information",
+    "3608. Contact the staff of Moff Brakomess Zornevor for any information",
+    "7484. Contact the staff of Moff Brakonok Varnonem for any information",
+    "5846. Contact the staff of Moff Brakorius Ruskumoth for any information",
+    "765. Contact the staff of Moff Brakosar Kyrrulan for any information",
+    "6308. Contact the staff of Moff Brakulus Nossanan for any information",
+    "2275. Contact the staff of Moff Brenetax Ruskakorn for any information"
+  ];
+
+  // Function to get random moff name
+  const getRandomSectorInfo = () => {
+    const randomIndex = Math.floor(Math.random() * moffNamesArray.length);
+    return moffNamesArray[randomIndex];
+  };
 
   // Signal analysis options (matching GM Station)
   const signalAnalysisOptions = [
@@ -116,39 +158,6 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     }
   }, [gameState?.communications]);
 
-  // Send initial mock messages to GM when socket connects
-  useEffect(() => {
-    if (socket) {
-      const room = new URLSearchParams(window.location.search).get('room') || 'default';
-
-      // Send all existing mock messages to GM when first connecting
-      mockComms.messageQueue.forEach(message => {
-        socket.emit('gm_broadcast', {
-          type: 'new_message',
-          value: message,
-          room,
-          source: 'communications'
-        });
-      });
-    }
-  }, [socket]);
-
-  // Send new messages to GM whenever messageQueue changes (this handles GM messages and TRANSMIT messages)
-  useEffect(() => {
-    if (socket && messageQueue.length > 0) {
-      const room = new URLSearchParams(window.location.search).get('room') || 'default';
-
-      // Send the latest message to GM
-      const latestMessage = messageQueue[messageQueue.length - 1];
-      socket.emit('gm_broadcast', {
-        type: 'new_message',
-        value: latestMessage,
-        room,
-        source: 'communications'
-      });
-    }
-  }, [messageQueue, socket]);
-
   // Mock data for demonstration
   const mockComms = {
     primaryFrequency: 121.5,
@@ -162,7 +171,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
         id: '1',
         from: 'Imperial Command',
         to: 'All Stations',
-        content: 'Maintain current heading. Rebel activity detected in sector 7.',
+        content: `Maintain current heading. Rebel activity detected in sector ${getRandomSectorInfo()}.`,
         priority: 'high' as const,
         encrypted: false,
         timestamp: Date.now() - 300000,
@@ -170,6 +179,25 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       }
     ]
   };
+
+  // Send initial mock messages to GM when socket connects (only once)
+  useEffect(() => {
+    if (socket && !initialMessagesSent) {
+      const room = new URLSearchParams(window.location.search).get('room') || 'default';
+
+      // Send all existing mock messages to GM when first connecting
+      mockComms.messageQueue.forEach(message => {
+        socket.emit('gm_broadcast', {
+          type: 'new_message',
+          value: message,
+          room,
+          source: 'communications'
+        });
+      });
+
+      setInitialMessagesSent(true);
+    }
+  }, [socket, initialMessagesSent, mockComms.messageQueue]);
 
   // Use real-time socket values instead of stale gameState
   const communications = {
@@ -246,42 +274,23 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       <div style={panelStyle}>
         <h3 style={panelTitleStyle}>SUBSPACE TRANSCEIVER</h3>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '15px' }}>
+        <div style={{ marginBottom: '15px' }}>
           <div style={{
             background: 'rgba(0, 0, 0, 0.6)',
             border: '1px solid #00ffff',
             borderRadius: '4px',
-            padding: '10px',
+            padding: '15px',
             textAlign: 'center'
           }}>
-            <div style={{ fontSize: '10px', color: '#888888', marginBottom: '5px' }}>PRIMARY FREQ</div>
-            <div style={{ fontSize: '18px', color: '#00ffff', fontWeight: 'bold', textShadow: '0 0 5px currentColor' }}>
-              {currentFrequency.toFixed(1)}
+            <div style={{ fontSize: '12px', color: '#888888', marginBottom: '8px' }}>PRIMARY FREQUENCY</div>
+            <div style={{ fontSize: '24px', color: '#00ffff', fontWeight: 'bold', textShadow: '0 0 8px currentColor', marginBottom: '12px' }}>
+              {currentFrequency.toFixed(1)} MHz
             </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '5px', marginTop: '8px' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '8px' }}>
               <button style={buttonStyle} onClick={() => adjustFrequency('primary', -0.1)}>-0.1</button>
               <button style={buttonStyle} onClick={() => adjustFrequency('primary', -1)}>-1</button>
               <button style={buttonStyle} onClick={() => adjustFrequency('primary', 1)}>+1</button>
               <button style={buttonStyle} onClick={() => adjustFrequency('primary', 0.1)}>+0.1</button>
-            </div>
-          </div>
-
-          <div style={{
-            background: 'rgba(0, 0, 0, 0.6)',
-            border: '1px solid #004444',
-            borderRadius: '4px',
-            padding: '10px',
-            textAlign: 'center'
-          }}>
-            <div style={{ fontSize: '10px', color: '#888888', marginBottom: '5px' }}>SECONDARY FREQ</div>
-            <div style={{ fontSize: '18px', color: '#006666', fontWeight: 'bold', textShadow: '0 0 5px currentColor' }}>
-              {communications.secondaryFrequency.toFixed(1)}
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'center', gap: '5px', marginTop: '8px' }}>
-              <button style={buttonStyle} onClick={() => adjustFrequency('secondary', -0.1)}>-0.1</button>
-              <button style={buttonStyle} onClick={() => adjustFrequency('secondary', -1)}>-1</button>
-              <button style={buttonStyle} onClick={() => adjustFrequency('secondary', 1)}>+1</button>
-              <button style={buttonStyle} onClick={() => adjustFrequency('secondary', 0.1)}>+0.1</button>
             </div>
           </div>
         </div>
@@ -370,7 +379,11 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
 
       {/* Message Composer */}
       <div style={panelStyle}>
-        <h3 style={panelTitleStyle}>MESSAGE COMPOSER</h3>
+        <h3 style={panelTitleStyle}>
+          MESSAGE COMPOSER
+          <br />
+          <span style={{ fontSize: '0.8rem', fontWeight: 'normal' }}>Available Encryption Protocols Installed</span>
+        </h3>
 
         <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
           <select
@@ -378,13 +391,13 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
             value={recipient}
             onChange={(e) => setRecipient(e.target.value)}
           >
-            <option value="All Stations">All Stations</option>
-            <option value="Navigation">Navigation</option>
-            <option value="Weapons">Weapons</option>
-            <option value="Engineering">Engineering</option>
-            <option value="Command">Command</option>
-            <option value="Imperial Command">Imperial Command</option>
-            <option value="Rebel Leadership">Rebel Leadership</option>
+            <option value="All Protocols (UNSECURE)">All Protocols (UNSECURE)</option>
+            <option value="Imperial Public Channel (UNENCRYPTED)">Imperial Public Channel (UNENCRYPTED)</option>
+            <option value="Rebel Command (512k ENCRYPTED)">Rebel Command (512k ENCRYPTED)</option>
+            <option value="HTTPSSP (SECURE)">HTTPSSP (SECURE)</option>
+            <option value="Marketing (UNENCRYPTED)">Marketing (UNENCRYPTED)</option>
+            <option value="Imperial Treason Reports (UNENCRYPTED)">Imperial Treason Reports (UNENCRYPTED)</option>
+            <option value="Bureau of Galactic Information News">Bureau of Galactic Information News</option>
           </select>
 
           <textarea
@@ -441,10 +454,16 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
                   onAir: `(${currentFrequency.toFixed(1)} MHz)`   // <-- new
                 };
 
-                // 1) broadcast to GM
+                // Create enhanced message for GM with analysis mode
+                const gmMsg = {
+                  ...msg,
+                  content: `[${signalAnalysisOptions.find(opt => opt.id === currentAnalysis)?.name ?? 'Normal Scan'}] ${messageText}`
+                };
+
+                // 1) broadcast to GM with analysis mode
                 socket?.emit('gm_broadcast', {
                   type: 'new_message',
-                  value: msg,
+                  value: gmMsg,
                   room,
                   source: 'communications'
                 });
@@ -711,7 +730,17 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
           {/* NEW DROP-DOWN */}
           <select
             value={currentAnalysis}
-            onChange={(e) => setCurrentAnalysis(e.target.value)}
+            onChange={(e) => {
+              setCurrentAnalysis(e.target.value);
+              // Broadcast analysis mode change to GM
+              const room = new URLSearchParams(window.location.search).get('room') || 'default';
+              socket?.emit('comm_broadcast', {
+                type: 'analysis_mode_update',
+                value: e.target.value,
+                room,
+                source: 'communications'
+              });
+            }}
             style={{
               width: '100%',
               background: '#111',
