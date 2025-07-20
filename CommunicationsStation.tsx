@@ -62,6 +62,14 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       }
     });
 
+    // Listen for frequency changes coming from the GM
+    newSocket.on('comm_broadcast', (data: { type: string; value: number; room: string; source: string; }) => {
+      if (data.type === 'frequency_update') {
+        setCurrentFrequency(data.value);
+        onPlayerAction('set_frequency', data.value);
+      }
+    });
+
     // Join communications room
     newSocket.emit('join', { room: 'default', station: 'communications' });
 
@@ -480,23 +488,18 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
               onChange={(e) => {
                 const newFreq = parseFloat(e.target.value);
                 setCurrentFrequency(newFreq);
-
-                // Emit to GM station and broadcast
-                if (socket) {
-                  socket.emit('comm_frequency_change', {
-                    frequency: newFreq,
-                    room: 'default'
-                  });
-
-                  socket.emit('comm_broadcast', {
-                    type: 'frequency_update',
-                    value: newFreq,
-                    room: 'default',
-                    source: 'communications'
-                  });
-                }
-
-                // Update parent component
+                // tell the server AND broadcast to everyone
+                socket?.emit('player_action', {
+                  action: 'set_frequency',
+                  value: newFreq,
+                  room: 'default',
+                });
+                socket?.emit('comm_broadcast', {
+                  type: 'frequency_update',
+                  value: newFreq,
+                  room: 'default',
+                  source: 'communications',
+                });
                 onPlayerAction('set_frequency', newFreq);
               }}
               style={{
@@ -548,18 +551,17 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
                 }}
                 onClick={() => {
                   setCurrentFrequency(channel.freq);
-                  if (socket) {
-                    socket.emit('comm_frequency_change', {
-                      frequency: channel.freq,
-                      room: 'default'
-                    });
-                    socket.emit('comm_broadcast', {
-                      type: 'frequency_update',
-                      value: channel.freq,
-                      room: 'default',
-                      source: 'communications'
-                    });
-                  }
+                  socket?.emit('player_action', {
+                    action: 'set_frequency',
+                    value: channel.freq,
+                    room: 'default',
+                  });
+                  socket?.emit('comm_broadcast', {
+                    type: 'frequency_update',
+                    value: channel.freq,
+                    room: 'default',
+                    source: 'communications',
+                  });
                   onPlayerAction('set_frequency', channel.freq);
                 }}
               >

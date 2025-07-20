@@ -322,6 +322,13 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                       key={macro.id}
                       onClick={() => {
                         emit('set_frequency', macro.frequency, 'communications');
+                        // ALSO broadcast the change
+                        socket?.emit('comm_broadcast', {
+                          type: 'frequency_update',
+                          value: macro.frequency,
+                          room: roomRef.current,
+                          source: 'gm',
+                        });
                         if (onGMUpdate) {
                           onGMUpdate({
                             communications: {
