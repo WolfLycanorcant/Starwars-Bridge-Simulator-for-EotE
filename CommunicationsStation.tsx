@@ -116,6 +116,39 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     }
   }, [gameState?.communications]);
 
+  // Send initial mock messages to GM when socket connects
+  useEffect(() => {
+    if (socket) {
+      const room = new URLSearchParams(window.location.search).get('room') || 'default';
+      
+      // Send all existing mock messages to GM when first connecting
+      mockComms.messageQueue.forEach(message => {
+        socket.emit('gm_broadcast', {
+          type: 'new_message',
+          value: message,
+          room,
+          source: 'communications'
+        });
+      });
+    }
+  }, [socket]);
+
+  // Send new messages to GM whenever messageQueue changes (this handles GM messages and TRANSMIT messages)
+  useEffect(() => {
+    if (socket && messageQueue.length > 0) {
+      const room = new URLSearchParams(window.location.search).get('room') || 'default';
+      
+      // Send the latest message to GM
+      const latestMessage = messageQueue[messageQueue.length - 1];
+      socket.emit('gm_broadcast', {
+        type: 'new_message',
+        value: latestMessage,
+        room,
+        source: 'communications'
+      });
+    }
+  }, [messageQueue, socket]);
+
   // Mock data for demonstration
   const mockComms = {
     primaryFrequency: 121.5,
@@ -404,7 +437,32 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
                 transition: 'all 0.3s ease',
                 opacity: !messageText.trim() ? 0.5 : 1
               }}
-              onClick={sendMessage}
+              onClick={() => {
+                if (!messageText.trim()) return;
+                const room = new URLSearchParams(window.location.search).get('room') || 'default';
+                const msg = {
+                  id: Date.now().toString(),
+                  from: 'Communications',
+                  to: recipient,
+                  content: messageText,
+                  priority: messagePriority,
+                  frequency: currentFrequency,
+                  timestamp: Date.now()
+                };
+                
+                // 1) send to server (if you still need that)
+                onPlayerAction('send_message', msg);
+                
+                // 2) broadcast so GM can see it
+                socket?.emit('gm_broadcast', {
+                  type: 'new_message',
+                  value: msg,
+                  room,
+                  source: 'communications'
+                });
+                
+                setMessageText('');
+              }}
               disabled={!messageText.trim()}
             >
               TRANSMIT
@@ -658,11 +716,32 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       <div style={panelStyle}>
         <h3 style={panelTitleStyle}>SIGNAL ANALYSIS</h3>
         <div style={{ fontSize: '11px', color: '#888888' }}>
-          <div style={{ marginBottom: '8px' }}>
+          {/* NEW DROP-DOWN */}
+          <select
+            value={currentAnalysis}
+            onChange={(e) => setCurrentAnalysis(e.target.value)}
+            style={{
+              width: '100%',
+              background: '#111',
+              border: '1px solid #00ffff',
+              color: '#eee',
+              padding: '4px 6px',
+              borderRadius: '4px',
+              fontSize: '0.75rem',
+              marginBottom: 6
+            }}
+          >
+            {signalAnalysisOptions.map(opt => (
+              <option key={opt.id} value={opt.id}>{opt.name}</option>
+            ))}
+          </select>
+          
+          <div style={{ marginTop: 8 }}>
             Current Analysis: <span style={{ color: '#00ffff', fontWeight: 'bold' }}>
               {signalAnalysisOptions.find(o => o.id === currentAnalysis)?.name ?? 'Normal'}
             </span>
           </div>
+          
           <div>Imperial Frequency: 121.5 MHz</div>
           <div>Rebel Leadership: 243.0 MHz</div>
           <div>Emergency Channel: 406.0 MHz</div>

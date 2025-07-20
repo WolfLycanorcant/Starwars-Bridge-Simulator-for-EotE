@@ -46,11 +46,6 @@ const initialGlobalState: GlobalGameState = {
 };
 
 /* ---------- ANIMATIONS ---------- */
-const pulse = keyframes`
-  0% { transform: scale(1); opacity: 0.8; }
-  50% { transform: scale(1.03); opacity: 1; }
-  100% { transform: scale(1); opacity: 0.8; }
-`;
 
 /* ---------- STYLES ---------- */
 const Container = styled.div`
@@ -168,6 +163,7 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
   const [messagePriority, setMessagePriority] = useState<'normal' | 'high' | 'emergency'>('normal');
   const [messageFrom, setMessageFrom] = useState('Command');
   const [messageAnalysis, setMessageAnalysis] = useState('normal');
+  const [commsTransmissions, setCommsTransmissions] = useState<CommunicationMessage[]>([]);
 
   // Frequency macros for different channels
   const frequencyMacros: FrequencyMacro[] = [
@@ -260,6 +256,20 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
     roomRef.current = room;
 
     s.emit('join', { room: roomRef.current, station: 'gm' });
+
+    /* Listen for GM broadcasts (including our own messages) */
+    s.on('gm_broadcast', (data: { type: string; value: any; room: string; source: string }) => {
+      console.log('GM received gm_broadcast:', data);
+
+      switch (data.type) {
+        case 'new_message':
+          // ignore our own messages so we don't duplicate them
+          if (data.source === 'communications') {
+            setCommsTransmissions(prev => [...prev, data.value]);
+          }
+          break;
+      }
+    });
 
     /* Listen to every station's state_update */
     s.on('state_update', (payload: { station: StationName; state: any }) => {
@@ -468,7 +478,7 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                 <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 8, fontWeight: 'bold' }}>
                   MESSAGE COMPOSER:
                 </div>
-                
+
                 {/* Priority selector */}
                 <select
                   value={messagePriority}
@@ -488,7 +498,7 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                   <option value="high">High</option>
                   <option value="emergency">EMERGENCY</option>
                 </select>
-                
+
                 {/* From field */}
                 <input
                   type="text"
@@ -506,27 +516,10 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                     marginBottom: 6
                   }}
                 />
-                
+
                 {/* Signal Analysis selector */}
-                <select
-                  value={messageAnalysis}
-                  onChange={(e) => setMessageAnalysis(e.target.value)}
-                  style={{
-                    width: '100%',
-                    background: '#111',
-                    border: '1px solid var(--gm-blue)',
-                    color: '#eee',
-                    padding: '4px 6px',
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    marginBottom: 6
-                  }}
-                >
-                  {signalAnalysisOptions.map(opt => (
-                    <option key={opt.id} value={opt.id}>{opt.name}</option>
-                  ))}
-                </select>
-                
+
+
                 {/* Message text */}
                 <textarea
                   placeholder="Type transmission..."
@@ -545,7 +538,7 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                     marginBottom: 6
                   }}
                 />
-                
+
                 {/* Send buttons */}
                 <div style={{ display: 'flex', gap: 4 }}>
                   <EmitButton
@@ -553,7 +546,7 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                       if (!messageResponse.trim()) return;
                       const room = roomRef.current;
                       const freq = states.communications?.primaryFrequency ?? 121.5;
-                      
+
                       // use the *same* channel Comms already listens for
                       socket?.emit('gm_broadcast', {
                         type: 'new_message',
@@ -596,6 +589,22 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                   <EmitRed onClick={() => emit('communications_blackout', true, 'communications')}>
                     BLACKOUT
                   </EmitRed>
+                </div>
+              </div>
+
+              {/* LIVE COMMUNICATION LOG */}
+              <div style={{ marginTop: 20, border: '1px solid var(--gm-blue)', borderRadius: 4, padding: 10 }}>
+                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 6 }}>COMMS TRANSMISSION LOG</div>
+                <div style={{ maxHeight: 120, overflowY: 'auto', fontSize: '0.7rem' }}>
+                  {commsTransmissions.length === 0 ? (
+                    <div style={{ color: '#666' }}>No transmissions yet</div>
+                  ) : (
+                    commsTransmissions.map(msg => (
+                      <div key={msg.id} style={{ marginBottom: 4 }}>
+                        <strong>{msg.from}</strong> → {msg.to}: {msg.content} <em>({msg.priority})</em>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </>
