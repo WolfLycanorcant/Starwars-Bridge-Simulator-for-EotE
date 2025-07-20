@@ -120,7 +120,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   useEffect(() => {
     if (socket) {
       const room = new URLSearchParams(window.location.search).get('room') || 'default';
-      
+
       // Send all existing mock messages to GM when first connecting
       mockComms.messageQueue.forEach(message => {
         socket.emit('gm_broadcast', {
@@ -137,7 +137,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   useEffect(() => {
     if (socket && messageQueue.length > 0) {
       const room = new URLSearchParams(window.location.search).get('room') || 'default';
-      
+
       // Send the latest message to GM
       const latestMessage = messageQueue[messageQueue.length - 1];
       socket.emit('gm_broadcast', {
@@ -187,16 +187,6 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     onPlayerAction(type === 'primary' ? 'set_frequency' : 'set_secondary_frequency', newFreq);
   };
 
-  const sendMessage = () => {
-    if (messageText.trim()) {
-      onPlayerAction('send_message', {
-        to: recipient,
-        content: messageText,
-        priority: messagePriority
-      });
-      setMessageText('');
-    }
-  };
 
   const containerStyle: React.CSSProperties = {
     display: 'grid',
@@ -447,20 +437,21 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
                   content: messageText,
                   priority: messagePriority,
                   frequency: currentFrequency,
-                  timestamp: Date.now()
+                  timestamp: Date.now(),
+                  onAir: `(${currentFrequency.toFixed(1)} MHz)`   // <-- new
                 };
-                
-                // 1) send to server (if you still need that)
-                onPlayerAction('send_message', msg);
-                
-                // 2) broadcast so GM can see it
+
+                // 1) broadcast to GM
                 socket?.emit('gm_broadcast', {
                   type: 'new_message',
                   value: msg,
                   room,
                   source: 'communications'
                 });
-                
+
+                // 2) add to local log
+                setMessageQueue(prev => [...prev, msg]);
+
                 setMessageText('');
               }}
               disabled={!messageText.trim()}
@@ -521,6 +512,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
                   <span>PRIORITY: {message.priority.toUpperCase()}</span>
                   {message.encrypted && <span>ENCRYPTED</span>}
                   {message.acknowledged && <span>ACKNOWLEDGED</span>}
+                  {message.onAir && <span>{message.onAir}</span>}
                 </div>
               </div>
             ))
@@ -735,13 +727,13 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
               <option key={opt.id} value={opt.id}>{opt.name}</option>
             ))}
           </select>
-          
+
           <div style={{ marginTop: 8 }}>
             Current Analysis: <span style={{ color: '#00ffff', fontWeight: 'bold' }}>
               {signalAnalysisOptions.find(o => o.id === currentAnalysis)?.name ?? 'Normal'}
             </span>
           </div>
-          
+
           <div>Imperial Frequency: 121.5 MHz</div>
           <div>Rebel Leadership: 243.0 MHz</div>
           <div>Emergency Channel: 406.0 MHz</div>

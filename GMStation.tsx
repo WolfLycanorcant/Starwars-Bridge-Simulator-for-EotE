@@ -36,6 +36,7 @@ interface CommunicationMessage {
   timestamp: Date;
   priority: 'low' | 'normal' | 'high' | 'emergency';
   frequency: number;
+  onAir?: string;
 }
 
 const initialGlobalState: GlobalGameState = {
@@ -558,7 +559,8 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                           priority: messagePriority,
                           frequency: freq,
                           timestamp: Date.now(),
-                          analysisMode: messageAnalysis        // <-- new
+                          analysisMode: messageAnalysis,        // <-- new
+                          onAir: `(${freq.toFixed(1)} MHz)`               // <-- new
                         },
                         room,
                         source: 'gm'
@@ -601,7 +603,7 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                   ) : (
                     commsTransmissions.map(msg => (
                       <div key={msg.id} style={{ marginBottom: 4 }}>
-                        <strong>{msg.from}</strong> → {msg.to}: {msg.content} <em>({msg.priority})</em>
+                        <strong>{msg.from}</strong> → {msg.to}: {msg.content} <em>({msg.priority})</em> {msg.onAir}
                       </div>
                     ))
                   )}
