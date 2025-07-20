@@ -17,6 +17,20 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   const [currentSignalStrength, setCurrentSignalStrength] = useState(85);
   const [currentInterference, setCurrentInterference] = useState(15);
   const [currentFrequency, setCurrentFrequency] = useState(121.5);
+  const [messageQueue, setMessageQueue] = useState<any[]>([]);
+  const [currentAnalysis, setCurrentAnalysis] = useState('normal');
+
+  // Signal analysis options (matching GM Station)
+  const signalAnalysisOptions = [
+    { id: 'normal', name: 'Normal Scan', description: 'Standard signal analysis', effect: 'baseline' },
+    { id: 'deep', name: 'Deep Scan', description: 'Enhanced signal penetration', effect: 'enhanced_range' },
+    { id: 'encrypted', name: 'Decrypt Mode', description: 'Attempt to decrypt signals', effect: 'decrypt_attempt' },
+    { id: 'jamming', name: 'Anti-Jam', description: 'Counter jamming attempts', effect: 'jam_resistance' },
+    { id: 'triangulate', name: 'Triangulate', description: 'Locate signal source', effect: 'source_location' },
+    { id: 'intercept', name: 'Intercept', description: 'Monitor enemy communications', effect: 'enemy_monitoring' },
+    { id: 'boost', name: 'Signal Boost', description: 'Amplify weak signals', effect: 'signal_amplification' },
+    { id: 'filter', name: 'Noise Filter', description: 'Remove background noise', effect: 'noise_reduction' }
+  ];
 
   // Initialize socket connection and listeners
   useEffect(() => {
@@ -25,6 +39,9 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     console.log('🔌 Communications Station connecting to current domain');
     const newSocket = io();
     setSocket(newSocket);
+
+    // Get room from URL parameter
+    const room = new URLSearchParams(window.location.search).get('room') || 'default';
 
     // Connection testing
     newSocket.on('connect', () => {
@@ -36,7 +53,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     });
 
     // Listen for GM broadcasts
-    newSocket.on('gm_broadcast', (data: { type: string; value: number; room: string; source: string }) => {
+    newSocket.on('gm_broadcast', (data: { type: string; value: any; room: string; source: string }) => {
       console.log('🔊 Communications Station received GM broadcast:', data);
 
       switch (data.type) {
@@ -59,6 +76,12 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
             onPlayerAction('set_frequency', data.value);
           }
           break;
+        case 'new_message':
+          // push GM message into the log
+          console.log('📨 Received GM message:', data.value);
+          setCurrentAnalysis(data.value.analysisMode || 'normal');
+          setMessageQueue(prev => [...prev, data.value]);
+          break;
       }
     });
 
@@ -70,8 +93,8 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       }
     });
 
-    // Join communications room
-    newSocket.emit('join', { room: 'default', station: 'communications' });
+    // Join communications room with URL parameter support
+    newSocket.emit('join', { room, station: 'communications' });
 
     return () => {
       newSocket.disconnect();
@@ -122,6 +145,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     signalStrength: currentSignalStrength,
     interference: currentInterference,
     primaryFrequency: currentFrequency,
+    messageQueue: [...mockComms.messageQueue, ...messageQueue], // Combine mock messages with real GM messages
   };
 
   const adjustFrequency = (type: 'primary' | 'secondary', delta: number) => {
@@ -489,15 +513,16 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
                 const newFreq = parseFloat(e.target.value);
                 setCurrentFrequency(newFreq);
                 // tell the server AND broadcast to everyone
+                const room = new URLSearchParams(window.location.search).get('room') || 'default';
                 socket?.emit('player_action', {
                   action: 'set_frequency',
                   value: newFreq,
-                  room: 'default',
+                  room: room,
                 });
                 socket?.emit('comm_broadcast', {
                   type: 'frequency_update',
                   value: newFreq,
-                  room: 'default',
+                  room: room,
                   source: 'communications',
                 });
                 onPlayerAction('set_frequency', newFreq);
@@ -538,6 +563,9 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
               { name: 'Emergency', freq: 121.5, color: '#ff0000' },
               { name: 'Command', freq: 243.0, color: '#ffd700' },
               { name: 'Medical', freq: 156.8, color: '#ff6b6b' },
+              { name: 'Security', freq: 453.212, color: '#a8e6cf' },
+              { name: 'Engineering', freq: 467.775, color: '#4ecdc4' },
+              { name: 'Navigation', freq: 156.05, color: '#95e1d3' },
               { name: 'Tactical', freq: 462.675, color: '#ff8c42' }
             ].map(channel => (
               <button
@@ -550,16 +578,17 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
                   padding: '6px 8px'
                 }}
                 onClick={() => {
+                  const room = new URLSearchParams(window.location.search).get('room') || 'default';
                   setCurrentFrequency(channel.freq);
                   socket?.emit('player_action', {
                     action: 'set_frequency',
                     value: channel.freq,
-                    room: 'default',
+                    room: room,
                   });
                   socket?.emit('comm_broadcast', {
                     type: 'frequency_update',
                     value: channel.freq,
-                    room: 'default',
+                    room: room,
                     source: 'communications',
                   });
                   onPlayerAction('set_frequency', channel.freq);
@@ -629,6 +658,11 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       <div style={panelStyle}>
         <h3 style={panelTitleStyle}>SIGNAL ANALYSIS</h3>
         <div style={{ fontSize: '11px', color: '#888888' }}>
+          <div style={{ marginBottom: '8px' }}>
+            Current Analysis: <span style={{ color: '#00ffff', fontWeight: 'bold' }}>
+              {signalAnalysisOptions.find(o => o.id === currentAnalysis)?.name ?? 'Normal'}
+            </span>
+          </div>
           <div>Imperial Frequency: 121.5 MHz</div>
           <div>Rebel Leadership: 243.0 MHz</div>
           <div>Emergency Channel: 406.0 MHz</div>

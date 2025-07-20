@@ -164,8 +164,10 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
   // Communications state
   const [signalStrength, setSignalStrength] = useState(100);
   const [interference, setInterference] = useState(0);
-  const [selectedAnalysis, setSelectedAnalysis] = useState('normal');
   const [messageResponse, setMessageResponse] = useState('');
+  const [messagePriority, setMessagePriority] = useState<'normal' | 'high' | 'emergency'>('normal');
+  const [messageFrom, setMessageFrom] = useState('Command');
+  const [messageAnalysis, setMessageAnalysis] = useState('normal');
 
   // Frequency macros for different channels
   const frequencyMacros: FrequencyMacro[] = [
@@ -254,8 +256,8 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
       }
     });
 
-    const params = new URLSearchParams(window.location.search);
-    roomRef.current = params.get('room') || 'default';
+    const room = new URLSearchParams(window.location.search).get('room') || 'default';
+    roomRef.current = room;
 
     s.emit('join', { room: roomRef.current, station: 'gm' });
 
@@ -308,7 +310,7 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
               </Row>
               <Row>
                 <span>Analysis Mode:</span>
-                <span>{signalAnalysisOptions.find(opt => opt.id === selectedAnalysis)?.name ?? 'Normal'}</span>
+                <span>{signalAnalysisOptions.find(opt => opt.id === messageAnalysis)?.name ?? 'Normal'}</span>
               </Row>
 
               {/* Frequency Macros */}
@@ -461,52 +463,73 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                 </div>
               </div>
 
-              {/* Signal Analysis Options */}
+              {/* MESSAGE COMPOSER */}
               <div style={{ marginTop: 15, marginBottom: 10 }}>
                 <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 8, fontWeight: 'bold' }}>
-                  SIGNAL ANALYSIS:
+                  MESSAGE COMPOSER:
                 </div>
+                
+                {/* Priority selector */}
                 <select
-                  value={selectedAnalysis}
-                  onChange={(e) => {
-                    setSelectedAnalysis(e.target.value);
-                    const option = signalAnalysisOptions.find(opt => opt.id === e.target.value);
-                    emit('set_analysis_mode', { mode: e.target.value, effect: option?.effect }, 'communications');
-                    if (onGMUpdate) {
-                      onGMUpdate({
-                        communications: {
-                          ...currentGameState.communications,
-                          analysisMode: e.target.value,
-                          analysisEffect: option?.effect
-                        }
-                      });
-                    }
-                  }}
+                  value={messagePriority}
+                  onChange={(e) => setMessagePriority(e.target.value as any)}
                   style={{
                     width: '100%',
                     background: '#111',
                     border: '1px solid var(--gm-blue)',
                     color: '#eee',
-                    padding: '6px',
+                    padding: '4px 6px',
                     borderRadius: '4px',
-                    fontSize: '0.8rem'
+                    fontSize: '0.75rem',
+                    marginBottom: 6
                   }}
                 >
-                  {signalAnalysisOptions.map(option => (
-                    <option key={option.id} value={option.id} title={option.description}>
-                      {option.name} - {option.description}
-                    </option>
+                  <option value="normal">Normal</option>
+                  <option value="high">High</option>
+                  <option value="emergency">EMERGENCY</option>
+                </select>
+                
+                {/* From field */}
+                <input
+                  type="text"
+                  placeholder="From (source)"
+                  value={messageFrom}
+                  onChange={(e) => setMessageFrom(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: '#111',
+                    border: '1px solid var(--gm-blue)',
+                    color: '#eee',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    fontSize: '0.75rem',
+                    marginBottom: 6
+                  }}
+                />
+                
+                {/* Signal Analysis selector */}
+                <select
+                  value={messageAnalysis}
+                  onChange={(e) => setMessageAnalysis(e.target.value)}
+                  style={{
+                    width: '100%',
+                    background: '#111',
+                    border: '1px solid var(--gm-blue)',
+                    color: '#eee',
+                    padding: '4px 6px',
+                    borderRadius: '4px',
+                    fontSize: '0.75rem',
+                    marginBottom: 6
+                  }}
+                >
+                  {signalAnalysisOptions.map(opt => (
+                    <option key={opt.id} value={opt.id}>{opt.name}</option>
                   ))}
                 </select>
-              </div>
-
-              {/* Message Response Composer */}
-              <div style={{ marginTop: 15, marginBottom: 10 }}>
-                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 8, fontWeight: 'bold' }}>
-                  MESSAGE COMPOSER:
-                </div>
+                
+                {/* Message text */}
                 <textarea
-                  placeholder="Compose response to communications station..."
+                  placeholder="Type transmission..."
                   value={messageResponse}
                   onChange={(e) => setMessageResponse(e.target.value)}
                   style={{
@@ -518,43 +541,40 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                     borderRadius: '4px',
                     fontSize: '0.8rem',
                     padding: '6px',
-                    resize: 'vertical'
+                    resize: 'vertical',
+                    marginBottom: 6
                   }}
                 />
-                <div style={{ display: 'flex', gap: 4, marginTop: 6 }}>
-                  <EmitButton onClick={() => {
-                    if (messageResponse.trim()) {
-                      emit('send_gm_message', {
-                        content: messageResponse,
-                        priority: 'normal',
-                        from: 'Command',
-                        to: 'Communications'
-                      }, 'communications');
+                
+                {/* Send buttons */}
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <EmitButton
+                    onClick={() => {
+                      if (!messageResponse.trim()) return;
+                      const room = roomRef.current;
+                      const freq = states.communications?.primaryFrequency ?? 121.5;
+                      
+                      // use the *same* channel Comms already listens for
+                      socket?.emit('gm_broadcast', {
+                        type: 'new_message',
+                        value: {
+                          id: Date.now().toString(),
+                          from: messageFrom,              // <- dynamic
+                          to: 'All Stations',
+                          content: messageResponse,
+                          priority: messagePriority,
+                          frequency: freq,
+                          timestamp: Date.now(),
+                          analysisMode: messageAnalysis        // <-- new
+                        },
+                        room,
+                        source: 'gm'
+                      });
                       setMessageResponse('');
-                    }
-                  }}>Send Normal</EmitButton>
-                  <EmitButton onClick={() => {
-                    if (messageResponse.trim()) {
-                      emit('send_gm_message', {
-                        content: messageResponse,
-                        priority: 'high',
-                        from: 'Command',
-                        to: 'Communications'
-                      }, 'communications');
-                      setMessageResponse('');
-                    }
-                  }} style={{ borderColor: 'var(--gm-yellow)', color: 'var(--gm-yellow)' }}>Send Priority</EmitButton>
-                  <EmitRed onClick={() => {
-                    if (messageResponse.trim()) {
-                      emit('send_gm_message', {
-                        content: messageResponse,
-                        priority: 'emergency',
-                        from: 'Command',
-                        to: 'Communications'
-                      }, 'communications');
-                      setMessageResponse('');
-                    }
-                  }}>Send Emergency</EmitRed>
+                    }}
+                  >
+                    Send Transmission
+                  </EmitButton>
                 </div>
               </div>
 
