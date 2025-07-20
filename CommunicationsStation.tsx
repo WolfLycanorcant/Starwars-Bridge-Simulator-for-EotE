@@ -2,6 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { GameState } from '../../types';
 
+// Add this type definition
+type Ship = {
+  id: string;
+  designation: string | null;
+  status: 'Active' | 'Inactive';
+  entryTime: number;
+};
+
 interface CommunicationsStationProps {
   gameState: GameState;
   onPlayerAction: (action: string, value: any) => void;
@@ -21,6 +29,9 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   const [currentAnalysis, setCurrentAnalysis] = useState('normal');
   const [initialMessagesSent, setInitialMessagesSent] = useState(false);
   const [moffNames, setMoffNames] = useState<string[]>([]);
+  
+  // Add ship state and management after existing state declarations
+  const [ships, setShips] = useState<Ship[]>([]);
 
   // Moff names array (sample from the 1024 lines in moff_names_with_numbers.txt)
   const moffNamesArray = [
@@ -61,6 +72,88 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     const randomIndex = Math.floor(Math.random() * moffNamesArray.length);
     return moffNamesArray[randomIndex];
   };
+
+  // Add organization list
+  const ORGANIZATIONS = [
+    "Imperial Galactic Governance Authority",
+    "Imperial Security & Intelligence Directorate",
+    "Imperial Inquisitorial Command",
+    "Sith High Command",
+    "Gerrera Resistance Movement",
+    "Mandalorian Death Watch",
+    "Mandalorian Children's Watch",
+    "Mandalorian Clan Alliance",
+    "Local Swoop Gang Networks",
+    "Hutt Cartel Crime Syndicate",
+    "Black Sun Criminal Enterprise",
+    "Pyke Syndicate Operations",
+    "Shadow Collective Alliance",
+    "Crymorah Syndicate Network",
+    "Zygerrian Slave Trade Empire",
+    "Kintan Striders Mercenary Group",
+    "Car'das Smuggling Consortium",
+    "Bounty Hunters' Guild Network",
+    "Czerka Arms Manufacturing",
+    "BlasTech Industrial Systems",
+    "Merr-Sonn Defense Solutions",
+    "Arakyd Industrial Technologies",
+    "Industrial Automaton Droidworks",
+    "Baktoid Combat Systems",
+    "Colla Design Collective",
+    "Tagge Industrial Mining Group",
+    "Techno Union Conglomerate",
+    "Haor Chall Engineering Corps",
+    "Santhe-Sienar Technologies Group",
+    "Sienar Fleet Systems Division",
+    "Kuat Drive Yards Shipbuilding",
+    "Kuat Systems Engineering Division",
+    "Rendili StarDrive Corporation",
+    "Corellian Engineering Works",
+    "Cygnus Spaceworks Limited",
+    "Loramarr Shipyards Consortium",
+    "Trade Federation Commerce Authority",
+    "InterGalactic Banking Federation",
+    "Corporate Alliance Board",
+    "Commerce Guild Trading Authority",
+    "Commerce Guild Executive Council",
+    "Mining Guild Extraction Services",
+    "Commerce Guild Security Forces",
+    "Arcona Mineral Resources Group",
+    "Dorvalla Mining Operations",
+    "Offworld Mining Corporation",
+    "SoroSuub Industrial Group",
+    "Commerce Guild Financial Services",
+    "Commerce Guild Arbitration Bureau",
+    "Kelris Industrial Tools & Supplies",
+    "Koensayr Equipment Distribution",
+    "Blarn Heavy Industrial Exchange",
+    "Reelo Modular Systems",
+    "Vyndra Commercial Trade Centers",
+    "Foshan Starport Retail Network",
+    "Crionex Consumer Markets",
+    "Qiraal Metalworks & Fabrication",
+    "Molvar Field Equipment Services",
+    "Polis Massa Scientific Procurement",
+    "Yarith Galactic Logistics",
+    "Caduceus Shipping Network",
+    "Dressem Cargo Systems",
+    "Trandoshan StarLift Services",
+    "Vandelhelm Bulk Transport",
+    "Yag'Dhul Route Navigation",
+    "Ylesia Freight Cooperative",
+    "Entralla Standard Shipping",
+    "Skako HydroLift Services",
+    "Bespin Tibanna Gas Solutions",
+    "Gentes ForgeFuel Refineries",
+    "Abhean Fuel Distribution",
+    "Kwenn Station Maintenance",
+    "Neimoidian Trade Commission",
+    "Zeltros Business Arbitration",
+    "Muunilinst Financial Compliance",
+    "Guild Standard Hostel Network",
+    "Bonadan MealStation Franchise",
+    "No Registered Designation"
+  ];
 
   // Signal analysis options (matching GM Station)
   const signalAnalysisOptions = [
@@ -198,6 +291,58 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       setInitialMessagesSent(true);
     }
   }, [socket, initialMessagesSent, mockComms.messageQueue]);
+
+  // Add ship update effect after the existing useEffect
+  useEffect(() => {
+    // Initial population
+    generateInitialShips();
+    
+    // Update ships every 5 seconds
+    const interval = setInterval(updateShipList, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const generateInitialShips = () => {
+    const count = Math.floor(Math.random() * 6) + 5; // 5-10 ships
+    setShips(Array.from({ length: count }, createShip));
+  };
+
+  const createShip = (): Ship => {
+    return {
+      id: `${Date.now()}-${Math.random()}`,
+      designation: Math.random() < 0.77 ?
+        ORGANIZATIONS[Math.floor(Math.random() * ORGANIZATIONS.length)] :
+        null,
+      status: Math.random() < 0.7 ? 'Active' : 'Inactive',
+      entryTime: Date.now()
+    };
+  };
+
+  const updateShipList = () => {
+    setShips(prev => {
+      // Keep 70% of existing ships
+      const keepCount = Math.floor(prev.length * 0.7);
+      const keptShips = prev.slice(0, keepCount).map(toggleStatusRandomly);
+      
+      // Add 1-3 new ships
+      const newShips = Array.from(
+        { length: Math.floor(Math.random() * 3) + 1 },
+        createShip
+      );
+      
+      return [...keptShips, ...newShips];
+    });
+  };
+
+  const toggleStatusRandomly = (ship: Ship): Ship => {
+    if (Math.random() < 0.2) {
+      return {
+        ...ship,
+        status: ship.status === 'Active' ? 'Inactive' : 'Active'
+      };
+    }
+    return ship;
+  };
 
   // Use real-time socket values instead of stale gameState
   const communications = {
@@ -711,15 +856,46 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       {/* Long Range Communications */}
       <div style={panelStyle}>
         <h3 style={panelTitleStyle}>LONG RANGE COMMS</h3>
-        <div style={{ fontSize: '11px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-            <span>Imperial Network:</span>
-            <span style={{ color: '#00ff00' }}>CONNECTED</span>
-          </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
-            <span>Fleet Coordination:</span>
-            <span style={{ color: '#00ff00' }}>ACTIVE</span>
-          </div>
+        <div style={{
+          fontSize: '11px',
+          maxHeight: '200px',
+          overflowY: 'auto',
+          padding: '5px 0'
+        }}>
+          {ships.length === 0 ? (
+            <div style={{ color: '#666666', textAlign: 'center', margin: '10px 0' }}>
+              No vessels in range
+            </div>
+          ) : (
+            ships.map(ship => (
+              <div
+                key={ship.id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  margin: '4px 0',
+                  padding: '3px 0',
+                  borderBottom: '1px solid rgba(0, 255, 255, 0.1)'
+                }}
+              >
+                <span style={{
+                  color: ship.designation ? '#80d0ff' : '#666666',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  maxWidth: '70%'
+                }}>
+                  {ship.designation || 'Undesignated'}
+                </span>
+                <span style={{
+                  color: ship.status === 'Active' ? '#00ff00' : '#ffff00',
+                  textShadow: '0 0 5px currentColor'
+                }}>
+                  {ship.status}
+                </span>
+              </div>
+            ))
+          )}
         </div>
       </div>
 
