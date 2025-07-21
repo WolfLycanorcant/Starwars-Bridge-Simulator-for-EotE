@@ -313,9 +313,10 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     return () => clearInterval(interval);
   }, [currentRegion]);
 
-  // Replace generateInitialShips with:
+  // Generate initial ships using Poisson distribution
   const generateInitialShips = () => {
-    const count = calculateShipCount();
+    const params = calculateShipCount();
+    const count = Math.max(0, Math.round(params.target + (Math.random() - 0.5) * params.target * 0.3));
     setShips(Array.from({ length: count }, createShip));
   };
 
@@ -344,66 +345,91 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     };
   };
 
-  // Replace updateShipList with:
+  // Poisson-based ship arrival and departure system
   const updateShipList = () => {
     setShips(prev => {
-      // Age existing ships
+      // 1. Age existing ships
       const agedShips = prev.map(ship => ({
         ...ship,
         age: ship.age + 1
       }));
 
-      // Filter ships that stay based on type
+      // 2. Filter ships that stay based on service time distribution
       const shipsThatStay = agedShips.filter(ship => {
-        switch (ship.type) {
-          case 'transient':  // 50% chance to leave each update
-            return Math.random() < 0.5;
-          case 'regular':    // 20% chance to leave each update
-            return Math.random() < 0.8;
-          case 'persistent': // 3% chance to leave each update
-            return Math.random() < 0.97;
-          default:
-            return true;
-        }
+        // Service rates per 5-second interval (departure probabilities)
+        const departureProbability = {
+          transient: 0.5,   // 50% chance to leave
+          regular: 0.2,     // 20% chance to leave
+          persistent: 0.03  // 3% chance to leave
+        }[ship.type];
+
+        return Math.random() > departureProbability;
       }).map(toggleStatusRandomly);
 
-      // Calculate needed ships based on region
-      const targetCount = calculateShipCount();
-      const shipsNeeded = Math.max(0, targetCount - shipsThatStay.length);
+      // 3. Calculate arrival rate based on region (Poisson process)
+      const params = calculateShipCount();
+      const lambda = params.lambda;
 
-      // Add new ships if needed
-      const newShips = shipsNeeded > 0
-        ? Array.from({ length: shipsNeeded }, createShip)
-        : [];
+      // 4. Generate Poisson-distributed arrivals
+      const newArrivals = [];
+      let k = 0;
+      let p = 1;
+      const L = Math.exp(-lambda);
 
-      return [...shipsThatStay, ...newShips];
+      do {
+        k++;
+        p *= Math.random();
+      } while (p > L);
+
+      // Generate new ships based on Poisson distribution
+      for (let i = 0; i < k - 1; i++) {
+        newArrivals.push(createShip());
+      }
+
+      // 5. Log state transitions for birth-death process visualization
+      if (newArrivals.length > 0 || shipsThatStay.length < prev.length) {
+        const transitionMsg = {
+          id: `transition-${Date.now()}`,
+          from: 'Traffic Control',
+          to: 'Long Range Comms',
+          content: `Traffic Update: ${prev.length} → ${shipsThatStay.length + newArrivals.length} ships (${newArrivals.length > 0 ? `+${newArrivals.length} arrivals` : `${prev.length - shipsThatStay.length} departures`})`,
+          priority: 'low' as const,
+          timestamp: Date.now(),
+          frequency: currentFrequency,
+          onAir: `(Traffic λ=${lambda.toFixed(1)})`
+        };
+
+        setMessageQueue(prevQueue => [...prevQueue, transitionMsg]);
+      }
+
+      return [...shipsThatStay, ...newArrivals];
     });
   };
 
-  // Replace calculateShipCount with:
-  const calculateShipCount = (): number => {
-    switch (currentRegion) {
-      case 'Core Worlds':
-        return Math.random() < 0.01 ? 1040 : 250;
-      case 'Colonies':
-        return Math.random() < 0.01 ? 510 : 125;
-      case 'Inner Rim':
-        return Math.random() < 0.01 ? 312 : 52;
-      case 'Mid Rim':
-        return Math.random() < 0.01 ? 130 : 15;
-      case 'Outer Rim':
-        return Math.random() < 0.01 ? 41 : 4;
-      case 'Wild Space':
-        // 50% chance for 1 ship, 10% for 2
-        if (Math.random() < 0.5) return 1;
-        if (Math.random() < 0.1) return 2;
-        return 0;
-      case 'Unknown Regions':
-        // 5% chance for 1 ship
-        return Math.random() < 0.05 ? 1 : 0;
-      default:
-        return 0;
+  // Calculate region-specific Poisson parameters for queueing theory
+  const calculateShipCount = (): { lambda: number; target: number } => {
+    // Base arrival rates per region (λ) and target steady-state counts
+    const regionParams = {
+      'Core Worlds': { lambda: 25, target: 250 },   // λ=25 arrivals/interval
+      'Colonies': { lambda: 12.5, target: 125 },
+      'Inner Rim': { lambda: 5.2, target: 52 },
+      'Mid Rim': { lambda: 1.5, target: 15 },
+      'Outer Rim': { lambda: 0.4, target: 4 },
+      'Wild Space': { lambda: 0.1, target: 1 },
+      'Unknown Regions': { lambda: 0.05, target: 0.5 }
+    };
+
+    const params = regionParams[currentRegion] || { lambda: 0, target: 0 };
+
+    // Add occasional traffic surges (1% chance for high activity)
+    if (Math.random() < 0.01) {
+      return {
+        lambda: params.lambda * 4,
+        target: params.target * 4
+      };
     }
+
+    return params;
   };
 
   const toggleStatusRandomly = (ship: Ship): Ship => {
@@ -436,7 +462,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   const containerStyle: React.CSSProperties = {
     display: 'grid',
     gridTemplateColumns: '1fr 1fr 1fr',
-    gridTemplateRows: '1fr 1fr',
+    gridTemplateRows: '1fr 1fr 200px',
     gap: '15px',
     padding: '15px',
     height: '100%',
@@ -926,10 +952,13 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
 
       {/* Long Range Communications */}
       <div style={{ ...panelStyle, height: '500px' }}>
-        <h3 style={panelTitleStyle}>LONG RANGE COMMS   {ships.length} Ships in the Area</h3>
-        <div style={{ fontSize: '10px', color: '#888888', textAlign: 'center', marginBottom: '10px' }}>
-          Current Region: {currentRegion}
-        </div>
+        <h3 style={panelTitleStyle}>
+          LONG RANGE COMMS   {ships.length} Ships in the Area
+          <br />
+          <span style={{ fontSize: '0.7em', color: '#888', fontWeight: 'normal' }}>
+            {currentRegion} (λ={calculateShipCount().lambda.toFixed(1)} arrivals/interval)
+          </span>
+        </h3>
         <div style={{
           fontSize: '11px',
           height: '100%',
@@ -1016,6 +1045,83 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
           <div>Imperial Frequency: 121.5 MHz</div>
           <div>Rebel Leadership: 243.0 MHz</div>
           <div>Emergency Channel: 406.0 MHz</div>
+        </div>
+      </div>
+
+      {/* Queueing Metrics Panel - spans all three columns */}
+      <div style={{ ...panelStyle, gridColumn: '1 / -1', height: '180px' }}>
+        <h3 style={panelTitleStyle}>QUEUEING THEORY METRICS</h3>
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(4, 1fr)',
+          gap: '15px',
+          fontSize: '11px',
+          height: '100%'
+        }}>
+          <div style={{
+            background: 'rgba(0, 0, 0, 0.4)',
+            padding: '10px',
+            borderRadius: '4px',
+            border: '1px solid #004444'
+          }}>
+            <div style={{ color: '#00ffff', fontWeight: 'bold', marginBottom: '8px' }}>CURRENT STATE</div>
+            <div>Ships in Area: <span style={{ color: '#00ff00' }}>{ships.length}</span></div>
+            <div>Active Ships: <span style={{ color: '#00ff00' }}>{ships.filter(s => s.status === 'Active').length}</span></div>
+            <div>Inactive Ships: <span style={{ color: '#ffff00' }}>{ships.filter(s => s.status === 'Inactive').length}</span></div>
+          </div>
+
+          <div style={{
+            background: 'rgba(0, 0, 0, 0.4)',
+            padding: '10px',
+            borderRadius: '4px',
+            border: '1px solid #004444'
+          }}>
+            <div style={{ color: '#00ffff', fontWeight: 'bold', marginBottom: '8px' }}>ARRIVAL RATES</div>
+            <div>Arrival Rate (λ): <span style={{ color: '#00ff00' }}>{calculateShipCount().lambda.toFixed(1)}/interval</span></div>
+            <div>Target Count: <span style={{ color: '#ffff00' }}>{calculateShipCount().target}</span></div>
+            <div>Region: <span style={{ color: '#80d0ff' }}>{currentRegion}</span></div>
+          </div>
+
+          <div style={{
+            background: 'rgba(0, 0, 0, 0.4)',
+            padding: '10px',
+            borderRadius: '4px',
+            border: '1px solid #004444'
+          }}>
+            <div style={{ color: '#00ffff', fontWeight: 'bold', marginBottom: '8px' }}>SERVICE RATES</div>
+            <div>Transient (μ₁): <span style={{ color: '#ff8800' }}>{(ships.filter(s => s.type === 'transient').length * 0.5).toFixed(1)}/interval</span></div>
+            <div>Regular (μ₂): <span style={{ color: '#ff8800' }}>{(ships.filter(s => s.type === 'regular').length * 0.2).toFixed(1)}/interval</span></div>
+            <div>Persistent (μ₃): <span style={{ color: '#ff8800' }}>{(ships.filter(s => s.type === 'persistent').length * 0.03).toFixed(1)}/interval</span></div>
+          </div>
+
+          <div style={{
+            background: 'rgba(0, 0, 0, 0.4)',
+            padding: '10px',
+            borderRadius: '4px',
+            border: '1px solid #004444'
+          }}>
+            <div style={{ color: '#00ffff', fontWeight: 'bold', marginBottom: '8px' }}>SYSTEM METRICS</div>
+            <div>Total Service Rate: <span style={{ color: '#ff8800' }}>{(
+              ships.filter(s => s.type === 'transient').length * 0.5 +
+              ships.filter(s => s.type === 'regular').length * 0.2 +
+              ships.filter(s => s.type === 'persistent').length * 0.03
+            ).toFixed(1)}/interval</span></div>
+            <div>Utilization (ρ): <span style={{
+              color: (() => {
+                const totalServiceRate = ships.filter(s => s.type === 'transient').length * 0.5 +
+                  ships.filter(s => s.type === 'regular').length * 0.2 +
+                  ships.filter(s => s.type === 'persistent').length * 0.03;
+                const utilization = totalServiceRate > 0 ? calculateShipCount().lambda / totalServiceRate : 0;
+                return utilization > 0.8 ? '#ff0000' : utilization > 0.6 ? '#ffff00' : '#00ff00';
+              })()
+            }}>{(() => {
+              const totalServiceRate = ships.filter(s => s.type === 'transient').length * 0.5 +
+                ships.filter(s => s.type === 'regular').length * 0.2 +
+                ships.filter(s => s.type === 'persistent').length * 0.03;
+              return totalServiceRate > 0 ? (calculateShipCount().lambda / totalServiceRate).toFixed(2) : '0.00';
+            })()}</span></div>
+            <div>Model: <span style={{ color: '#80d0ff' }}>M/G/∞</span></div>
+          </div>
         </div>
       </div>
     </div>
