@@ -167,6 +167,29 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
   const [commsTransmissions, setCommsTransmissions] = useState<CommunicationMessage[]>([]);
   const [selectedGalaxyRegion, setSelectedGalaxyRegion] = useState('Core Worlds');
 
+  // Emergency beacon state and flashing effect
+  const [emergencyBeaconActive, setEmergencyBeaconActive] = useState(false);
+  const [beaconFlashing, setBeaconFlashing] = useState(false);
+
+  // Emergency beacon flashing effect for GM station
+  useEffect(() => {
+    let flashInterval: NodeJS.Timeout;
+    
+    if (emergencyBeaconActive) {
+      flashInterval = setInterval(() => {
+        setBeaconFlashing(prev => !prev);
+      }, 500); // Flash every 500ms
+    } else {
+      setBeaconFlashing(false);
+    }
+
+    return () => {
+      if (flashInterval) {
+        clearInterval(flashInterval);
+      }
+    };
+  }, [emergencyBeaconActive]);
+
   // Moff names array (sample from the 1024 lines in moff_names_with_numbers.txt)
   const moffNamesArray = [
     "3695. Contact the staff of Moff Avenalem Kyrrorin for any information",
@@ -330,6 +353,13 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
           // ignore our own messages so we don't duplicate them
           if (data.source === 'communications') {
             setCommsTransmissions(prev => [...prev, data.value]);
+          }
+          break;
+        case 'emergency_beacon_update':
+          // Update GM beacon state when Communications station changes it
+          if (data.source === 'communications') {
+            console.log('🚨 GM received emergency beacon update:', data.value);
+            setEmergencyBeaconActive(data.value);
           }
           break;
       }
@@ -646,10 +676,60 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                   QUICK ACTIONS:
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                  <EmitButton onClick={() => emit('toggle_emergency_beacon', true, 'communications')}>
+                  <EmitButton 
+                    onClick={() => {
+                      setEmergencyBeaconActive(true);
+                      emit('toggle_emergency_beacon', true, 'communications');
+                      // Broadcast beacon state to Communications station
+                      if (socket) {
+                        console.log('🚨 GM Broadcasting emergency beacon ON');
+                        socket.emit('gm_broadcast', {
+                          type: 'emergency_beacon_update',
+                          value: true,
+                          room: roomRef.current,
+                          source: 'gm'
+                        });
+                      }
+                      if (onGMUpdate) {
+                        onGMUpdate({
+                          communications: {
+                            ...currentGameState.communications,
+                            emergencyBeacon: true
+                          }
+                        });
+                      }
+                    }}
+                    style={{
+                      // Add flashing red border when beacon is active
+                      border: emergencyBeaconActive && beaconFlashing ? '2px solid #ff0000' : '1px solid var(--gm-green)',
+                      boxShadow: emergencyBeaconActive && beaconFlashing ? '0 0 15px rgba(255, 0, 0, 0.8)' : 'none',
+                      background: emergencyBeaconActive ? 'rgba(255, 0, 0, 0.2)' : 'rgba(0, 255, 136, 0.1)'
+                    }}
+                  >
                     Beacon ON
                   </EmitButton>
-                  <EmitRed onClick={() => emit('toggle_emergency_beacon', false, 'communications')}>
+                  <EmitRed onClick={() => {
+                    setEmergencyBeaconActive(false);
+                    emit('toggle_emergency_beacon', false, 'communications');
+                    // Broadcast beacon state to Communications station
+                    if (socket) {
+                      console.log('🚨 GM Broadcasting emergency beacon OFF');
+                      socket.emit('gm_broadcast', {
+                        type: 'emergency_beacon_update',
+                        value: false,
+                        room: roomRef.current,
+                        source: 'gm'
+                      });
+                    }
+                    if (onGMUpdate) {
+                      onGMUpdate({
+                        communications: {
+                          ...currentGameState.communications,
+                          emergencyBeacon: false
+                        }
+                      });
+                    }
+                  }}>
                     Beacon OFF
                   </EmitRed>
                   <EmitButton onClick={() => {

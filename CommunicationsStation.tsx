@@ -39,6 +39,29 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   // Add region state after existing state declarations
   const [currentRegion, setCurrentRegion] = useState<'Core Worlds' | 'Colonies' | 'Inner Rim' | 'Mid Rim' | 'Outer Rim' | 'Wild Space' | 'Unknown Regions'>('Core Worlds');
 
+  // Emergency beacon state and flashing effect
+  const [emergencyBeaconActive, setEmergencyBeaconActive] = useState(false);
+  const [isFlashing, setIsFlashing] = useState(false);
+
+  // Emergency beacon flashing effect
+  useEffect(() => {
+    let flashInterval: NodeJS.Timeout;
+
+    if (emergencyBeaconActive) {
+      flashInterval = setInterval(() => {
+        setIsFlashing(prev => !prev);
+      }, 500); // Flash every 500ms
+    } else {
+      setIsFlashing(false);
+    }
+
+    return () => {
+      if (flashInterval) {
+        clearInterval(flashInterval);
+      }
+    };
+  }, [emergencyBeaconActive]);
+
   // Moff names array (sample from the 1024 lines in moff_names_with_numbers.txt)
   const moffNamesArray = [
     "3695. Contact the staff of Moff Avenalem Kyrrorin for any information",
@@ -220,6 +243,12 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
         case 'region_update':  // Add this case
           console.log('🌌 Communications Station received region update:', data.value);
           setCurrentRegion(data.value as any);
+          break;
+        case 'emergency_beacon_update':
+          console.log('🚨 Emergency beacon state update:', data.value);
+          setEmergencyBeaconActive(data.value);
+          // Also update parent component
+          onPlayerAction('toggle_emergency_beacon', data.value);
           break;
         case 'new_message':
           // push GM message into the log
@@ -494,7 +523,11 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     gap: '15px',
     padding: '15px',
     height: '100%',
-    background: 'radial-gradient(circle at center, rgba(0, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.9) 100%)'
+    background: 'radial-gradient(circle at center, rgba(0, 255, 255, 0.05) 0%, rgba(0, 0, 0, 0.9) 100%)',
+    // Emergency beacon flashing border effect
+    border: emergencyBeaconActive && isFlashing ? '4px solid #ff0000' : '4px solid transparent',
+    boxShadow: emergencyBeaconActive && isFlashing ? '0 0 30px rgba(255, 0, 0, 0.8), inset 0 0 30px rgba(255, 0, 0, 0.3)' : 'none',
+    transition: 'border 0.1s ease, box-shadow 0.1s ease'
   };
 
   const panelStyle: React.CSSProperties = {
@@ -628,7 +661,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
 
         <button
           style={{
-            background: communications.emergencyBeacon ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 0, 0, 0.1)',
+            background: emergencyBeaconActive ? 'rgba(255, 0, 0, 0.3)' : 'rgba(255, 0, 0, 0.1)',
             border: '2px solid #ff0000',
             color: '#ff0000',
             padding: '15px',
@@ -640,11 +673,24 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
             marginTop: '15px',
             transition: 'all 0.3s ease'
           }}
-          onClick={() => onPlayerAction('toggle_emergency_beacon', !communications.emergencyBeacon)}
+          onClick={() => {
+            const newBeaconState = !emergencyBeaconActive;
+            setEmergencyBeaconActive(newBeaconState);
+            onPlayerAction('toggle_emergency_beacon', newBeaconState);
+
+            // Broadcast beacon state to GM station
+            const room = new URLSearchParams(window.location.search).get('room') || 'default';
+            socket?.emit('gm_broadcast', {
+              type: 'emergency_beacon_update',
+              value: newBeaconState,
+              room,
+              source: 'communications'
+            });
+          }}
         >
           EMERGENCY BEACON
           <br />
-          {communications.emergencyBeacon ? 'ACTIVE' : 'STANDBY'}
+          {emergencyBeaconActive ? 'ACTIVE' : 'STANDBY'}
         </button>
       </div>
 
