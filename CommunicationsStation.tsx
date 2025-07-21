@@ -661,7 +661,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       </div>
 
       {/* Message Log */}
-      <div style={panelStyle}>
+      <div style={{...panelStyle, height: '520px'}}>
         <h3 style={panelTitleStyle}>TRANSMISSION LOG</h3>
 
         <div style={{
@@ -671,8 +671,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
           borderRadius: '4px',
           padding: '10px',
           overflowY: 'auto',
-          fontSize: '11px',
-          maxHeight: '300px'
+          fontSize: '11px'
         }}>
           {communications.messageQueue.length === 0 ? (
             <div style={{ color: '#666666', textAlign: 'center', marginTop: '50px' }}>
@@ -719,7 +718,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       </div>
 
       {/* Communication Channels */}
-      <div style={panelStyle}>
+      <div style={{...panelStyle, height: '290px'}}>
         <h3 style={panelTitleStyle}>COMMUNICATION CHANNELS</h3>
 
         {/* Frequency Slider */}
@@ -934,7 +933,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       </div>
 
       {/* Signal Analysis */}
-      <div style={panelStyle}>
+      <div style={{...panelStyle, height: '290px'}}>
         <h3 style={panelTitleStyle}>SIGNAL ANALYSIS</h3>
         <div style={{ fontSize: '11px', color: '#888888' }}>
           {/* NEW DROP-DOWN */}
