@@ -428,25 +428,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
         newArrivals.push(createShip([...shipsThatStay, ...newArrivals]));
       }
 
-      // 6. Log convoy departures and traffic transitions
-      const departedShips = prev.length - shipsThatStay.length;
-      const departedConvoys = departingGroups.size;
-
-      if (newArrivals.length > 0 || departedShips > 0) {
-        const convoyInfo = departedConvoys > 0 ? ` (${departedConvoys} convoy${departedConvoys > 1 ? 's' : ''} departed)` : '';
-        const transitionMsg = {
-          id: `transition-${Date.now()}`,
-          from: 'Traffic Control',
-          to: 'Long Range Comms',
-          content: `Traffic Update: ${prev.length} → ${shipsThatStay.length + newArrivals.length} ships (${newArrivals.length > 0 ? `+${newArrivals.length} arrivals` : `${departedShips} departures`})${convoyInfo}`,
-          priority: 'low' as const,
-          timestamp: Date.now(),
-          frequency: currentFrequency,
-          onAir: `(Space Traffic λ=${lambda.toFixed(1)})`
-        };
-
-        setMessageQueue(prevQueue => [...prevQueue, transitionMsg]);
-      }
+      // 6. Traffic transitions occur silently (no transmission log entries)
 
       return [...shipsThatStay, ...newArrivals];
     });

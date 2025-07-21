@@ -705,16 +705,75 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                 </div>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <EmitButton onClick={() => {
-                    setSignalStrength(Math.min(100, signalStrength + 25));
-                    emit('boost_signal', 25, 'communications');
-                  }}>+25%</EmitButton>
-                  <EmitButton onClick={() => {
-                    setSignalStrength(Math.max(0, signalStrength - 25));
+                    const newValue = Math.max(0, signalStrength - 25);
+                    setSignalStrength(newValue);
+                    // Emit to communications station
                     emit('reduce_signal', 25, 'communications');
+                    // Broadcast to all stations
+                    if (socket) {
+                      console.log('🎛️ GM Broadcasting -25% signal strength update:', newValue);
+                      socket.emit('gm_broadcast', {
+                        type: 'signal_strength_update',
+                        value: newValue,
+                        room: roomRef.current,
+                        source: 'gm'
+                      });
+                    }
+                    if (onGMUpdate) {
+                      onGMUpdate({
+                        communications: {
+                          ...currentGameState.communications,
+                          signalStrength: newValue
+                        }
+                      });
+                    }
                   }}>-25%</EmitButton>
+                  <EmitButton onClick={() => {
+                    const newValue = Math.min(100, signalStrength + 25);
+                    setSignalStrength(newValue);
+                    // Emit to communications station
+                    emit('boost_signal', 25, 'communications');
+                    // Broadcast to all stations
+                    if (socket) {
+                      console.log('🎛️ GM Broadcasting +25% signal strength update:', newValue);
+                      socket.emit('gm_broadcast', {
+                        type: 'signal_strength_update',
+                        value: newValue,
+                        room: roomRef.current,
+                        source: 'gm'
+                      });
+                    }
+                    if (onGMUpdate) {
+                      onGMUpdate({
+                        communications: {
+                          ...currentGameState.communications,
+                          signalStrength: newValue
+                        }
+                      });
+                    }
+                  }}>+25%</EmitButton>
                   <EmitRed onClick={() => {
                     setSignalStrength(0);
+                    // Emit to communications station
                     emit('kill_signal', true, 'communications');
+                    // Broadcast to all stations (same pattern as other signal controls)
+                    if (socket) {
+                      console.log('🎛️ GM Broadcasting KILL signal strength update: 0');
+                      socket.emit('gm_broadcast', {
+                        type: 'signal_strength_update',
+                        value: 0,
+                        room: roomRef.current,
+                        source: 'gm'
+                      });
+                    }
+                    if (onGMUpdate) {
+                      onGMUpdate({
+                        communications: {
+                          ...currentGameState.communications,
+                          signalStrength: 0
+                        }
+                      });
+                    }
                   }}>KILL</EmitRed>
                 </div>
               </div>
@@ -759,16 +818,75 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                 </div>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <EmitButton onClick={() => {
-                    setInterference(Math.min(100, interference + 25));
-                    emit('add_interference', 25, 'communications');
-                  }}>+25%</EmitButton>
-                  <EmitButton onClick={() => {
-                    setInterference(Math.max(0, interference - 25));
+                    const newValue = Math.max(0, interference - 25);
+                    setInterference(newValue);
+                    // Emit to communications station
                     emit('reduce_interference', 25, 'communications');
+                    // Broadcast to all stations
+                    if (socket) {
+                      console.log('🎛️ GM Broadcasting -25% interference update:', newValue);
+                      socket.emit('gm_broadcast', {
+                        type: 'interference_update',
+                        value: newValue,
+                        room: roomRef.current,
+                        source: 'gm'
+                      });
+                    }
+                    if (onGMUpdate) {
+                      onGMUpdate({
+                        communications: {
+                          ...currentGameState.communications,
+                          interference: newValue
+                        }
+                      });
+                    }
                   }}>-25%</EmitButton>
+                  <EmitButton onClick={() => {
+                    const newValue = Math.min(100, interference + 25);
+                    setInterference(newValue);
+                    // Emit to communications station
+                    emit('add_interference', 25, 'communications');
+                    // Broadcast to all stations
+                    if (socket) {
+                      console.log('🎛️ GM Broadcasting +25% interference update:', newValue);
+                      socket.emit('gm_broadcast', {
+                        type: 'interference_update',
+                        value: newValue,
+                        room: roomRef.current,
+                        source: 'gm'
+                      });
+                    }
+                    if (onGMUpdate) {
+                      onGMUpdate({
+                        communications: {
+                          ...currentGameState.communications,
+                          interference: newValue
+                        }
+                      });
+                    }
+                  }}>+25%</EmitButton>
                   <EmitRed onClick={() => {
                     setInterference(100);
+                    // Emit to communications station
                     emit('jam_all_signals', true, 'communications');
+                    // Broadcast to all stations (same pattern as other interference controls)
+                    if (socket) {
+                      console.log('🎛️ GM Broadcasting JAM ALL interference update: 100');
+                      socket.emit('gm_broadcast', {
+                        type: 'interference_update',
+                        value: 100,
+                        room: roomRef.current,
+                        source: 'gm'
+                      });
+                    }
+                    if (onGMUpdate) {
+                      onGMUpdate({
+                        communications: {
+                          ...currentGameState.communications,
+                          interference: 100
+                        }
+                      });
+                    }
                   }}>JAM ALL</EmitRed>
                 </div>
               </div>
