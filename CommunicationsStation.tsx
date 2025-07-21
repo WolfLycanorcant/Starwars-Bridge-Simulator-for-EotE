@@ -292,6 +292,18 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     }
   }, [gameState?.communications]);
 
+  // Static initial Imperial message (generated once, never changes)
+  const [initialImperialMessage] = useState(() => ({
+    id: '1',
+    from: 'Imperial Command',
+    to: 'All Stations',
+    content: `Maintain current heading. Rebel activity detected in sector ${getRandomSectorInfo()}.`,
+    priority: 'high' as const,
+    encrypted: false,
+    timestamp: Date.now() - 300000,
+    acknowledged: false
+  }));
+
   // Mock data for demonstration
   const mockComms = {
     primaryFrequency: 121.5,
@@ -300,18 +312,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     interference: 15,
     transmissionStatus: 'standby',
     emergencyBeacon: false,
-    messageQueue: [
-      {
-        id: '1',
-        from: 'Imperial Command',
-        to: 'All Stations',
-        content: `Maintain current heading. Rebel activity detected in sector ${getRandomSectorInfo()}.`,
-        priority: 'high' as const,
-        encrypted: false,
-        timestamp: Date.now() - 300000,
-        acknowledged: false
-      }
-    ]
+    messageQueue: [initialImperialMessage]
   };
 
   // Send initial mock messages to GM when socket connects (only once)
