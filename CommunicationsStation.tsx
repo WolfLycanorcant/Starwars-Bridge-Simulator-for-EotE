@@ -32,6 +32,9 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   
   // Add ship state and management after existing state declarations
   const [ships, setShips] = useState<Ship[]>([]);
+  
+  // Add region state after existing state declarations
+  const [currentRegion, setCurrentRegion] = useState<'Core Worlds' | 'Colonies' | 'Inner Rim' | 'Mid Rim' | 'Outer Rim' | 'Wild Space' | 'Unknown Regions'>('Core Worlds');
 
   // Moff names array (sample from the 1024 lines in moff_names_with_numbers.txt)
   const moffNamesArray = [
@@ -228,6 +231,11 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       }
     });
 
+    // Add inside the socket useEffect, before return
+    newSocket.on('region_update', (data: { region: string }) => {
+      setCurrentRegion(data.region as any);
+    });
+
     // Join communications room with URL parameter support
     newSocket.emit('join', { room, station: 'communications' });
 
@@ -302,8 +310,9 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     return () => clearInterval(interval);
   }, []);
 
+  // Replace generateInitialShips with:
   const generateInitialShips = () => {
-    const count = Math.floor(Math.random() * 6) + 5; // 5-10 ships
+    const count = calculateShipCount();
     setShips(Array.from({ length: count }, createShip));
   };
 
@@ -318,20 +327,45 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     };
   };
 
+  // Replace updateShipList with:
   const updateShipList = () => {
     setShips(prev => {
       // Keep 70% of existing ships
       const keepCount = Math.floor(prev.length * 0.7);
       const keptShips = prev.slice(0, keepCount).map(toggleStatusRandomly);
       
-      // Add 1-3 new ships
-      const newShips = Array.from(
-        { length: Math.floor(Math.random() * 3) + 1 },
-        createShip
-      );
+      // Generate new ships based on region
+      const newCount = calculateShipCount();
+      const newShips = Array.from({ length: newCount }, createShip);
       
       return [...keptShips, ...newShips];
     });
+  };
+
+  // Replace calculateShipCount with:
+  const calculateShipCount = (): number => {
+    switch(currentRegion) {
+      case 'Core Worlds':
+        return Math.random() < 0.01 ? 1040 : 250;
+      case 'Colonies':
+        return Math.random() < 0.01 ? 510 : 125;
+      case 'Inner Rim':
+        return Math.random() < 0.01 ? 312 : 52;
+      case 'Mid Rim':
+        return Math.random() < 0.01 ? 130 : 15;
+      case 'Outer Rim':
+        return Math.random() < 0.01 ? 41 : 4;
+      case 'Wild Space':
+        // 50% chance for 1 ship, 10% for 2
+        if (Math.random() < 0.5) return 1;
+        if (Math.random() < 0.1) return 2;
+        return 0;
+      case 'Unknown Regions':
+        // 5% chance for 1 ship
+        return Math.random() < 0.05 ? 1 : 0;
+      default:
+        return 0;
+    }
   };
 
   const toggleStatusRandomly = (ship: Ship): Ship => {
@@ -854,11 +888,11 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       </div>
 
       {/* Long Range Communications */}
-      <div style={panelStyle}>
+      <div style={{...panelStyle, height: '500px'}}>
         <h3 style={panelTitleStyle}>LONG RANGE COMMS</h3>
         <div style={{
           fontSize: '11px',
-          maxHeight: '200px',
+          height: '100%',
           overflowY: 'auto',
           padding: '5px 0'
         }}>
