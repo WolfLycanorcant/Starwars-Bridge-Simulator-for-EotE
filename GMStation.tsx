@@ -715,10 +715,21 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                         room,
                         source: 'gm'
                       });
+
+                      // Broadcast scan response to Communications station to fast-forward analysis
+                      socket?.emit('gm_broadcast', {
+                        type: 'scan_response',
+                        value: {
+                          timestamp: Date.now(),
+                          from: messageFrom
+                        },
+                        room,
+                        source: 'gm'
+                      });
                       
                       // Additionally, stop the scan flashing
                       setScanActive(false);
-                      console.log('🔍 GM Scan Response sent - stopping scan indicator');
+                      console.log('🔍 GM Scan Response sent - stopping scan indicator and fast-forwarding analysis');
                       
                       setMessageResponse('');
                     }}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { GameState } from '../../types';
 
@@ -48,6 +48,14 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   const [scanProgress, setScanProgress] = useState(0);
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [fastForwardAnalysis, setFastForwardAnalysis] = useState(false);
+
+  // Add ref for isAnalysing to avoid stale closure in event listener
+  const isAnalysingRef = useRef(isAnalysing);
+
+  useEffect(() => {
+    isAnalysingRef.current = isAnalysing;
+  }, [isAnalysing]);
 
   // Scan animation effect
   useEffect(() => {
@@ -74,7 +82,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     };
   }, [isScanning]);
 
-  // Analysis animation effect (5 minute duration)
+  // Analysis animation effect (5 minute duration or fast-forward)
   useEffect(() => {
     let analysisInterval: NodeJS.Timeout;
 
@@ -84,11 +92,14 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
         setAnalysisProgress(prev => {
           if (prev >= 100) {
             setIsAnalysing(false);
+            setFastForwardAnalysis(false); // Reset fast-forward flag
             return 0;
           }
-          return prev + 0.033; // Increase by 0.033% every 100ms for 5 minute analysis (300 seconds)
+          // Use fast increment if fast-forward is active, otherwise normal speed
+          const increment = fastForwardAnalysis ? 5 : 0.033; // 5% for fast-forward, 0.033% for normal
+          return prev + increment;
         });
-      }, 100);
+      }, fastForwardAnalysis ? 50 : 100); // Faster interval for fast-forward
     }
 
     return () => {
@@ -96,7 +107,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
         clearInterval(analysisInterval);
       }
     };
-  }, [isAnalysing]);
+  }, [isAnalysing, fastForwardAnalysis]);
 
   // Emergency beacon flashing effect
   useEffect(() => {
@@ -304,6 +315,13 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
           setEmergencyBeaconActive(data.value);
           // Also update parent component
           onPlayerAction('toggle_emergency_beacon', data.value);
+          break;
+        case 'scan_response':
+          // GM responded to scan - fast-forward analysis to completion
+          if (data.source === 'gm' && isAnalysingRef.current) {
+            console.log('🔍 Communications received scan response - fast-forwarding analysis to completion');
+            setFastForwardAnalysis(true);
+          }
           break;
         case 'new_message':
           // push GM message into the log
