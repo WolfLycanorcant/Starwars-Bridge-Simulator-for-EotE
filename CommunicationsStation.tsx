@@ -43,6 +43,61 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   const [emergencyBeaconActive, setEmergencyBeaconActive] = useState(false);
   const [isFlashing, setIsFlashing] = useState(false);
 
+  // Signal analysis scan state
+  const [isScanning, setIsScanning] = useState(false);
+  const [scanProgress, setScanProgress] = useState(0);
+  const [isAnalysing, setIsAnalysing] = useState(false);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
+
+  // Scan animation effect
+  useEffect(() => {
+    let scanInterval: NodeJS.Timeout;
+
+    if (isScanning) {
+      setScanProgress(0);
+      scanInterval = setInterval(() => {
+        setScanProgress(prev => {
+          if (prev >= 100) {
+            setIsScanning(false);
+            setIsAnalysing(true); // Start analysis phase after scan completes
+            return 0;
+          }
+          return prev + 2; // Increase by 2% every 50ms for 2.5 second scan
+        });
+      }, 50);
+    }
+
+    return () => {
+      if (scanInterval) {
+        clearInterval(scanInterval);
+      }
+    };
+  }, [isScanning]);
+
+  // Analysis animation effect (5 minute duration)
+  useEffect(() => {
+    let analysisInterval: NodeJS.Timeout;
+
+    if (isAnalysing) {
+      setAnalysisProgress(0);
+      analysisInterval = setInterval(() => {
+        setAnalysisProgress(prev => {
+          if (prev >= 100) {
+            setIsAnalysing(false);
+            return 0;
+          }
+          return prev + 0.033; // Increase by 0.033% every 100ms for 5 minute analysis (300 seconds)
+        });
+      }, 100);
+    }
+
+    return () => {
+      if (analysisInterval) {
+        clearInterval(analysisInterval);
+      }
+    };
+  }, [isAnalysing]);
+
   // Emergency beacon flashing effect
   useEffect(() => {
     let flashInterval: NodeJS.Timeout;
@@ -857,7 +912,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       </div>
 
       {/* Communication Channels */}
-      <div style={{ ...panelStyle, height: '290px' }}>
+      <div style={{ ...panelStyle, height: '340px' }}>
         <h3 style={panelTitleStyle}>COMMUNICATION CHANNELS</h3>
 
         {/* Frequency Slider */}
@@ -1080,47 +1135,245 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       {/* Signal Analysis */}
       <div style={{ ...panelStyle, height: '290px' }}>
         <h3 style={panelTitleStyle}>SIGNAL ANALYSIS</h3>
-        <div style={{ fontSize: '11px', color: '#888888' }}>
-          {/* NEW DROP-DOWN */}
-          <select
-            value={currentAnalysis}
-            onChange={(e) => {
-              setCurrentAnalysis(e.target.value);
-              // Broadcast analysis mode change to GM
-              const room = new URLSearchParams(window.location.search).get('room') || 'default';
-              socket?.emit('comm_broadcast', {
-                type: 'analysis_mode_update',
-                value: e.target.value,
-                room,
-                source: 'communications'
-              });
-            }}
-            style={{
-              width: '100%',
-              background: '#111',
-              border: '1px solid #00ffff',
-              color: '#eee',
-              padding: '4px 6px',
-              borderRadius: '4px',
-              fontSize: '0.75rem',
-              marginBottom: 6
-            }}
-          >
-            {signalAnalysisOptions.map(opt => (
-              <option key={opt.id} value={opt.id}>{opt.name}</option>
-            ))}
-          </select>
 
-          <div style={{ marginTop: 8 }}>
-            Current Analysis: <span style={{ color: '#00ffff', fontWeight: 'bold' }}>
-              {signalAnalysisOptions.find(o => o.id === currentAnalysis)?.name ?? 'Normal'}
-            </span>
+        {/* Analysis Mode Dropdown */}
+        <select
+          value={currentAnalysis}
+          onChange={(e) => {
+            setCurrentAnalysis(e.target.value);
+            // Broadcast analysis mode change to GM
+            const room = new URLSearchParams(window.location.search).get('room') || 'default';
+            socket?.emit('comm_broadcast', {
+              type: 'analysis_mode_update',
+              value: e.target.value,
+              room,
+              source: 'communications'
+            });
+          }}
+          style={{
+            width: '100%',
+            background: '#111',
+            border: '1px solid #00ffff',
+            color: '#eee',
+            padding: '4px 6px',
+            borderRadius: '4px',
+            fontSize: '0.75rem',
+            marginBottom: 10
+          }}
+        >
+          {signalAnalysisOptions.map(opt => (
+            <option key={opt.id} value={opt.id}>{opt.name}</option>
+          ))}
+        </select>
+
+        {/* Status and Scan Button Row */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 15 }}>
+          <div style={{ fontSize: '11px', color: '#888888', flex: 1 }}>
+            <div style={{ marginBottom: 4 }}>
+              Current Analysis: <span style={{ color: '#00ffff', fontWeight: 'bold', fontSize: '12px' }}>
+                {signalAnalysisOptions.find(o => o.id === currentAnalysis)?.name ?? 'Normal Scan'}
+              </span>
+            </div>
+            <div>Imperial Frequency: 121.5 MHz</div>
+            <div>Rebel Leadership: 243.0 MHz</div>
+            <div>Emergency Channel: 406.0 MHz</div>
           </div>
 
-          <div>Imperial Frequency: 121.5 MHz</div>
-          <div>Rebel Leadership: 243.0 MHz</div>
-          <div>Emergency Channel: 406.0 MHz</div>
+          <button
+            style={{
+              background: (isScanning || isAnalysing) ? 'rgba(255, 136, 0, 0.3)' : 'rgba(0, 255, 255, 0.1)',
+              border: `2px solid ${(isScanning || isAnalysing) ? '#ff8800' : '#00ffff'}`,
+              color: (isScanning || isAnalysing) ? '#ff8800' : '#00ffff',
+              padding: '8px 16px',
+              fontFamily: 'inherit',
+              fontSize: '12px',
+              fontWeight: 'bold',
+              cursor: (isScanning || isAnalysing) ? 'not-allowed' : 'pointer',
+              borderRadius: '4px',
+              transition: 'all 0.3s ease',
+              marginLeft: 10,
+              minWidth: '80px'
+            }}
+            onClick={() => {
+              if (!isScanning && !isAnalysing) {
+                setIsScanning(true);
+                // Broadcast scan start to GM station
+                const room = new URLSearchParams(window.location.search).get('room') || 'default';
+                socket?.emit('gm_broadcast', {
+                  type: 'scan_started',
+                  value: {
+                    analysisMode: currentAnalysis,
+                    timestamp: Date.now()
+                  },
+                  room,
+                  source: 'communications'
+                });
+              }
+            }}
+            disabled={isScanning || isAnalysing}
+          >
+            {isScanning ? 'SCANNING...' : isAnalysing ? 'ANALYSING...' : 'SCAN'}
+          </button>
         </div>
+
+        {/* Scan Animation Area */}
+        {isScanning && (
+          <div style={{
+            flex: 1,
+            background: 'rgba(0, 0, 0, 0.8)',
+            border: '1px solid #00ffff',
+            borderRadius: '4px',
+            padding: '10px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center'
+          }}>
+            {/* Scanning Progress Bar */}
+            <div style={{
+              width: '100%',
+              height: '20px',
+              background: 'rgba(0, 0, 0, 0.6)',
+              border: '1px solid #004444',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              marginBottom: 15
+            }}>
+              <div style={{
+                height: '100%',
+                background: 'linear-gradient(90deg, #00ffff, #0088ff)',
+                width: `${scanProgress}%`,
+                transition: 'width 0.1s ease',
+                boxShadow: '0 0 10px rgba(0, 255, 255, 0.5)'
+              }}></div>
+            </div>
+
+            {/* Scanning Text */}
+            <div style={{
+              color: '#00ffff',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textAlign: 'center',
+              textShadow: '0 0 10px currentColor',
+              marginBottom: 10
+            }}>
+              ANALYZING SIGNAL PATTERNS...
+            </div>
+
+            {/* Progress Percentage */}
+            <div style={{
+              color: '#888888',
+              fontSize: '12px',
+              textAlign: 'center'
+            }}>
+              {Math.round(scanProgress)}% Complete
+            </div>
+
+            {/* Animated Scanning Lines */}
+            <div style={{
+              position: 'absolute',
+              width: '100%',
+              height: '2px',
+              background: 'linear-gradient(90deg, transparent, #00ffff, transparent)',
+              top: `${20 + (scanProgress / 100) * 60}%`,
+              opacity: 0.8
+            }}></div>
+
+            {/* Additional scanning effect lines */}
+            <div style={{
+              position: 'absolute',
+              width: '100%',
+              height: '1px',
+              background: 'rgba(0, 255, 255, 0.3)',
+              top: `${25 + (scanProgress / 100) * 50}%`
+            }}></div>
+          </div>
+        )}
+
+        {/* Analysis Animation Area */}
+        {isAnalysing && (
+          <div style={{
+            flex: 1,
+            background: 'rgba(0, 0, 0, 0.8)',
+            border: '1px solid #ff8800',
+            borderRadius: '4px',
+            padding: '10px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+            alignItems: 'center',
+            position: 'relative'
+          }}>
+            {/* Analysis Progress Bar */}
+            <div style={{
+              width: '100%',
+              height: '20px',
+              background: 'rgba(0, 0, 0, 0.6)',
+              border: '1px solid #664400',
+              borderRadius: '10px',
+              overflow: 'hidden',
+              marginBottom: 15
+            }}>
+              <div style={{
+                height: '100%',
+                background: 'linear-gradient(90deg, #ff8800, #ffaa00)',
+                width: `${analysisProgress}%`,
+                transition: 'width 0.1s ease',
+                boxShadow: '0 0 10px rgba(255, 136, 0, 0.5)'
+              }}></div>
+            </div>
+
+            {/* Analysis Text */}
+            <div style={{
+              color: '#ff8800',
+              fontSize: '14px',
+              fontWeight: 'bold',
+              textAlign: 'center',
+              textShadow: '0 0 10px currentColor',
+              marginBottom: 10
+            }}>
+              ANALYSING RESULTS...
+            </div>
+
+            {/* Progress Percentage */}
+            <div style={{
+              color: '#888888',
+              fontSize: '12px',
+              textAlign: 'center'
+            }}>
+              {Math.round(analysisProgress)}% Complete
+            </div>
+
+            {/* Pulsing Analysis Effect */}
+            <div style={{
+              position: 'absolute',
+              width: '60%',
+              height: '60%',
+              border: '2px solid rgba(255, 136, 0, 0.4)',
+              borderRadius: '50%',
+              opacity: 0.6 + (analysisProgress / 200)
+            }}></div>
+
+            {/* Data Processing Lines */}
+            <div style={{
+              position: 'absolute',
+              width: '100%',
+              height: '2px',
+              background: 'linear-gradient(90deg, transparent, #ff8800, transparent)',
+              top: `${30 + Math.sin(analysisProgress / 10) * 20}%`,
+              opacity: 0.7
+            }}></div>
+
+            <div style={{
+              position: 'absolute',
+              width: '100%',
+              height: '1px',
+              background: 'rgba(255, 136, 0, 0.5)',
+              top: `${50 + Math.cos(analysisProgress / 8) * 15}%`,
+              opacity: 0.5
+            }}></div>
+          </div>
+        )}
       </div>
 
       {/* Queueing Metrics Panel - spans all three columns */}

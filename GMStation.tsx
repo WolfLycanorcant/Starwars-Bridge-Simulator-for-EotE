@@ -171,6 +171,10 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
   const [emergencyBeaconActive, setEmergencyBeaconActive] = useState(false);
   const [beaconFlashing, setBeaconFlashing] = useState(false);
 
+  // Scan indicator flashing effect
+  const [scanActive, setScanActive] = useState(false);
+  const [scanFlashing, setScanFlashing] = useState(false);
+
   // Emergency beacon flashing effect for GM station
   useEffect(() => {
     let flashInterval: NodeJS.Timeout;
@@ -189,6 +193,25 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
       }
     };
   }, [emergencyBeaconActive]);
+
+  // Scan indicator flashing effect for GM station
+  useEffect(() => {
+    let flashInterval: NodeJS.Timeout;
+    
+    if (scanActive) {
+      flashInterval = setInterval(() => {
+        setScanFlashing(prev => !prev);
+      }, 300); // Flash every 300ms for scan indicator
+    } else {
+      setScanFlashing(false);
+    }
+
+    return () => {
+      if (flashInterval) {
+        clearInterval(flashInterval);
+      }
+    };
+  }, [scanActive]);
 
   // Moff names array (sample from the 1024 lines in moff_names_with_numbers.txt)
   const moffNamesArray = [
@@ -362,6 +385,14 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
             setEmergencyBeaconActive(data.value);
           }
           break;
+        case 'scan_started':
+          // Update GM scan indicator when Communications station starts a scan
+          if (data.source === 'communications') {
+            console.log('🔍 GM received scan started:', data.value);
+            setScanActive(true);
+            // Flashing continues until GM responds with Scan Response
+          }
+          break;
       }
     });
 
@@ -502,7 +533,16 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
               </Row>
               <Row>
                 <span>Analysis Mode:</span>
-                <span>{signalAnalysisOptions.find(opt => opt.id === messageAnalysis)?.name ?? 'Normal'}</span>
+                <span style={{
+                  color: scanActive && scanFlashing ? '#ff0000' : '#eee',
+                  backgroundColor: scanActive && scanFlashing ? 'rgba(255, 0, 0, 0.2)' : 'transparent',
+                  padding: scanActive ? '2px 4px' : '0',
+                  borderRadius: '2px',
+                  transition: 'all 0.1s ease',
+                  textShadow: scanActive && scanFlashing ? '0 0 8px #ff0000' : 'none'
+                }}>
+                  {signalAnalysisOptions.find(opt => opt.id === messageAnalysis)?.name ?? 'Normal'}
+                </span>
               </Row>
 
               {/* Frequency Macros */}
@@ -650,6 +690,40 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                     }}
                   >
                     Send Transmission
+                  </EmitButton>
+                  
+                  <EmitButton
+                    onClick={() => {
+                      if (!messageResponse.trim()) return;
+                      const room = roomRef.current;
+                      const freq = states.communications?.primaryFrequency ?? 121.5;
+
+                      // Send the same transmission as Send Transmission button
+                      socket?.emit('gm_broadcast', {
+                        type: 'new_message',
+                        value: {
+                          id: Date.now().toString(),
+                          from: messageFrom,              // <- dynamic
+                          to: 'All Stations',
+                          content: messageResponse,
+                          priority: messagePriority,
+                          frequency: freq,
+                          timestamp: Date.now(),
+                          analysisMode: messageAnalysis,        // <-- new
+                          onAir: `(${freq.toFixed(1)} MHz)`               // <-- new
+                        },
+                        room,
+                        source: 'gm'
+                      });
+                      
+                      // Additionally, stop the scan flashing
+                      setScanActive(false);
+                      console.log('🔍 GM Scan Response sent - stopping scan indicator');
+                      
+                      setMessageResponse('');
+                    }}
+                  >
+                    Scan Response
                   </EmitButton>
                 </div>
               </div>
