@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { GameState } from '../../types';
 
-// Add this type definition
+// Add this type definition with group synchronization support
 type Ship = {
   id: string;
   designation: string | null;
@@ -10,6 +10,7 @@ type Ship = {
   entryTime: number;
   type: 'transient' | 'regular' | 'persistent';
   age: number;
+  groupId?: string;  // New property for convoy behavior
 };
 
 interface CommunicationsStationProps {
@@ -317,10 +318,21 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   const generateInitialShips = () => {
     const params = calculateShipCount();
     const count = Math.max(0, Math.round(params.target + (Math.random() - 0.5) * params.target * 0.3));
-    setShips(Array.from({ length: count }, createShip));
+    setShips(Array.from({ length: count }, () => createShip([])));
   };
 
-  const createShip = (): Ship => {
+  // Helper function for space-specific departure probabilities
+  const getBaseDepartureProbability = (shipType: 'transient' | 'regular' | 'persistent'): number => {
+    // Lowered departure probabilities reflecting space infrastructure limitations
+    const departureProbabilities = {
+      transient: 0.3,   // Was 0.5 (50% → 30%) - stopping in space is resource-intensive
+      regular: 0.1,     // Was 0.2 (20% → 10%) - longer stays due to high travel costs
+      persistent: 0.01  // Was 0.03 (3% → 1%) - very long stays for established operations
+    };
+    return departureProbabilities[shipType];
+  };
+
+  const createShip = (existingShips: Ship[] = []): Ship => {
     // Determine ship type with weighted probabilities
     const typeRoll = Math.random();
     let type: 'transient' | 'regular' | 'persistent';
@@ -333,6 +345,24 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       type = 'persistent'; // 5% chance - long-lived
     }
 
+    // 30% chance to be in a convoy group (space ships often travel together for safety)
+    let groupId: string | undefined;
+    if (Math.random() < 0.3) {
+      // Check existing ships for possible grouping (70% chance to join existing group)
+      if (existingShips.length > 0 && Math.random() < 0.7) {
+        // Join existing group - FIXED: Using Array.from() for ES compatibility
+        const existingGroups = Array.from(new Set(
+          existingShips.map(s => s.groupId).filter((g): g is string => g !== undefined)
+        ));
+        groupId = existingGroups.length > 0
+          ? existingGroups[Math.floor(Math.random() * existingGroups.length)]
+          : `convoy-${Date.now()}-${Math.random()}`;
+      } else {
+        // Create new convoy group
+        groupId = `convoy-${Date.now()}-${Math.random()}`;
+      }
+    }
+
     return {
       id: `${Date.now()}-${Math.random()}`,
       designation: Math.random() < 0.77 ?
@@ -341,11 +371,12 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       status: Math.random() < 0.7 ? 'Active' : 'Inactive',
       entryTime: Date.now(),
       type,
-      age: 0
+      age: 0,
+      groupId
     };
   };
 
-  // Poisson-based ship arrival and departure system
+  // Space-specific Poisson arrival and convoy departure system
   const updateShipList = () => {
     setShips(prev => {
       // 1. Age existing ships
@@ -354,24 +385,35 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
         age: ship.age + 1
       }));
 
-      // 2. Filter ships that stay based on service time distribution
+      // 2. Track departing convoy groups (group synchronization)
+      const departingGroups = new Set<string>();
+
+      // First pass: identify ships that want to depart individually
+      agedShips.forEach(ship => {
+        const baseProbability = getBaseDepartureProbability(ship.type);
+        if (Math.random() < baseProbability && ship.groupId) {
+          departingGroups.add(ship.groupId);
+        }
+      });
+
+      // 3. Filter ships that stay with convoy synchronization
       const shipsThatStay = agedShips.filter(ship => {
-        // Service rates per 5-second interval (departure probabilities)
-        const departureProbability = {
-          transient: 0.5,   // 50% chance to leave
-          regular: 0.2,     // 20% chance to leave
-          persistent: 0.03  // 3% chance to leave
-        }[ship.type];
+        let departureProbability = getBaseDepartureProbability(ship.type);
+
+        // Increase departure chance if in departing convoy (3x multiplier)
+        if (ship.groupId && departingGroups.has(ship.groupId)) {
+          departureProbability *= 3;
+        }
 
         return Math.random() > departureProbability;
       }).map(toggleStatusRandomly);
 
-      // 3. Calculate arrival rate based on region (Poisson process)
+      // 4. Calculate arrival rate based on region (Poisson process)
       const params = calculateShipCount();
       const lambda = params.lambda;
 
-      // 4. Generate Poisson-distributed arrivals
-      const newArrivals = [];
+      // 5. Generate Poisson-distributed arrivals - FIXED: Explicit type annotation
+      const newArrivals: Ship[] = [];
       let k = 0;
       let p = 1;
       const L = Math.exp(-lambda);
@@ -381,22 +423,26 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
         p *= Math.random();
       } while (p > L);
 
-      // Generate new ships based on Poisson distribution
+      // Generate new ships based on Poisson distribution (pass existing ships for grouping)
       for (let i = 0; i < k - 1; i++) {
-        newArrivals.push(createShip());
+        newArrivals.push(createShip([...shipsThatStay, ...newArrivals]));
       }
 
-      // 5. Log state transitions for birth-death process visualization
-      if (newArrivals.length > 0 || shipsThatStay.length < prev.length) {
+      // 6. Log convoy departures and traffic transitions
+      const departedShips = prev.length - shipsThatStay.length;
+      const departedConvoys = departingGroups.size;
+
+      if (newArrivals.length > 0 || departedShips > 0) {
+        const convoyInfo = departedConvoys > 0 ? ` (${departedConvoys} convoy${departedConvoys > 1 ? 's' : ''} departed)` : '';
         const transitionMsg = {
           id: `transition-${Date.now()}`,
           from: 'Traffic Control',
           to: 'Long Range Comms',
-          content: `Traffic Update: ${prev.length} → ${shipsThatStay.length + newArrivals.length} ships (${newArrivals.length > 0 ? `+${newArrivals.length} arrivals` : `${prev.length - shipsThatStay.length} departures`})`,
+          content: `Traffic Update: ${prev.length} → ${shipsThatStay.length + newArrivals.length} ships (${newArrivals.length > 0 ? `+${newArrivals.length} arrivals` : `${departedShips} departures`})${convoyInfo}`,
           priority: 'low' as const,
           timestamp: Date.now(),
           frequency: currentFrequency,
-          onAir: `(Traffic λ=${lambda.toFixed(1)})`
+          onAir: `(Space Traffic λ=${lambda.toFixed(1)})`
         };
 
         setMessageQueue(prevQueue => [...prevQueue, transitionMsg]);
@@ -1088,10 +1134,10 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
             borderRadius: '4px',
             border: '1px solid #004444'
           }}>
-            <div style={{ color: '#00ffff', fontWeight: 'bold', marginBottom: '8px' }}>SERVICE RATES</div>
-            <div>Transient (μ₁): <span style={{ color: '#ff8800' }}>{(ships.filter(s => s.type === 'transient').length * 0.5).toFixed(1)}/interval</span></div>
-            <div>Regular (μ₂): <span style={{ color: '#ff8800' }}>{(ships.filter(s => s.type === 'regular').length * 0.2).toFixed(1)}/interval</span></div>
-            <div>Persistent (μ₃): <span style={{ color: '#ff8800' }}>{(ships.filter(s => s.type === 'persistent').length * 0.03).toFixed(1)}/interval</span></div>
+            <div style={{ color: '#00ffff', fontWeight: 'bold', marginBottom: '8px' }}>SPACE SERVICE RATES</div>
+            <div>Transient (μ₁): <span style={{ color: '#ff8800' }}>{(ships.filter(s => s.type === 'transient').length * 0.3).toFixed(1)}/interval</span></div>
+            <div>Regular (μ₂): <span style={{ color: '#ff8800' }}>{(ships.filter(s => s.type === 'regular').length * 0.1).toFixed(1)}/interval</span></div>
+            <div>Persistent (μ₃): <span style={{ color: '#ff8800' }}>{(ships.filter(s => s.type === 'persistent').length * 0.01).toFixed(1)}/interval</span></div>
           </div>
 
           <div style={{
@@ -1102,22 +1148,22 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
           }}>
             <div style={{ color: '#00ffff', fontWeight: 'bold', marginBottom: '8px' }}>SYSTEM METRICS</div>
             <div>Total Service Rate: <span style={{ color: '#ff8800' }}>{(
-              ships.filter(s => s.type === 'transient').length * 0.5 +
-              ships.filter(s => s.type === 'regular').length * 0.2 +
-              ships.filter(s => s.type === 'persistent').length * 0.03
+              ships.filter(s => s.type === 'transient').length * 0.3 +
+              ships.filter(s => s.type === 'regular').length * 0.1 +
+              ships.filter(s => s.type === 'persistent').length * 0.01
             ).toFixed(1)}/interval</span></div>
             <div>Utilization (ρ): <span style={{
               color: (() => {
-                const totalServiceRate = ships.filter(s => s.type === 'transient').length * 0.5 +
-                  ships.filter(s => s.type === 'regular').length * 0.2 +
-                  ships.filter(s => s.type === 'persistent').length * 0.03;
+                const totalServiceRate = ships.filter(s => s.type === 'transient').length * 0.3 +
+                  ships.filter(s => s.type === 'regular').length * 0.1 +
+                  ships.filter(s => s.type === 'persistent').length * 0.01;
                 const utilization = totalServiceRate > 0 ? calculateShipCount().lambda / totalServiceRate : 0;
                 return utilization > 0.8 ? '#ff0000' : utilization > 0.6 ? '#ffff00' : '#00ff00';
               })()
             }}>{(() => {
-              const totalServiceRate = ships.filter(s => s.type === 'transient').length * 0.5 +
-                ships.filter(s => s.type === 'regular').length * 0.2 +
-                ships.filter(s => s.type === 'persistent').length * 0.03;
+              const totalServiceRate = ships.filter(s => s.type === 'transient').length * 0.3 +
+                ships.filter(s => s.type === 'regular').length * 0.1 +
+                ships.filter(s => s.type === 'persistent').length * 0.01;
               return totalServiceRate > 0 ? (calculateShipCount().lambda / totalServiceRate).toFixed(2) : '0.00';
             })()}</span></div>
             <div>Model: <span style={{ color: '#80d0ff' }}>M/G/∞</span></div>
