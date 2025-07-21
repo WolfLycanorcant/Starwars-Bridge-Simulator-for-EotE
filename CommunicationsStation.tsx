@@ -8,6 +8,8 @@ type Ship = {
   designation: string | null;
   status: 'Active' | 'Inactive';
   entryTime: number;
+  type: 'transient' | 'regular' | 'persistent';
+  age: number;
 };
 
 interface CommunicationsStationProps {
@@ -28,11 +30,11 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   const [messageQueue, setMessageQueue] = useState<any[]>([]);
   const [currentAnalysis, setCurrentAnalysis] = useState('normal');
   const [initialMessagesSent, setInitialMessagesSent] = useState(false);
-  const [moffNames, setMoffNames] = useState<string[]>([]);
-  
+
+
   // Add ship state and management after existing state declarations
   const [ships, setShips] = useState<Ship[]>([]);
-  
+
   // Add region state after existing state declarations
   const [currentRegion, setCurrentRegion] = useState<'Core Worlds' | 'Colonies' | 'Inner Rim' | 'Mid Rim' | 'Outer Rim' | 'Wild Space' | 'Unknown Regions'>('Core Worlds');
 
@@ -214,6 +216,10 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
             onPlayerAction('set_frequency', data.value);
           }
           break;
+        case 'region_update':  // Add this case
+          console.log('🌌 Communications Station received region update:', data.value);
+          setCurrentRegion(data.value as any);
+          break;
         case 'new_message':
           // push GM message into the log
           console.log('📨 Received GM message:', data.value);
@@ -231,10 +237,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       }
     });
 
-    // Add inside the socket useEffect, before return
-    newSocket.on('region_update', (data: { region: string }) => {
-      setCurrentRegion(data.region as any);
-    });
+
 
     // Join communications room with URL parameter support
     newSocket.emit('join', { room, station: 'communications' });
@@ -304,11 +307,11 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   useEffect(() => {
     // Initial population
     generateInitialShips();
-    
+
     // Update ships every 5 seconds
     const interval = setInterval(updateShipList, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [currentRegion]);
 
   // Replace generateInitialShips with:
   const generateInitialShips = () => {
@@ -317,34 +320,69 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   };
 
   const createShip = (): Ship => {
+    // Determine ship type with weighted probabilities
+    const typeRoll = Math.random();
+    let type: 'transient' | 'regular' | 'persistent';
+
+    if (typeRoll < 0.6) {
+      type = 'transient';  // 60% chance - short-lived
+    } else if (typeRoll < 0.95) {
+      type = 'regular';    // 35% chance - medium-lived
+    } else {
+      type = 'persistent'; // 5% chance - long-lived
+    }
+
     return {
       id: `${Date.now()}-${Math.random()}`,
       designation: Math.random() < 0.77 ?
         ORGANIZATIONS[Math.floor(Math.random() * ORGANIZATIONS.length)] :
         null,
       status: Math.random() < 0.7 ? 'Active' : 'Inactive',
-      entryTime: Date.now()
+      entryTime: Date.now(),
+      type,
+      age: 0
     };
   };
 
   // Replace updateShipList with:
   const updateShipList = () => {
     setShips(prev => {
-      // Keep 70% of existing ships
-      const keepCount = Math.floor(prev.length * 0.7);
-      const keptShips = prev.slice(0, keepCount).map(toggleStatusRandomly);
-      
-      // Generate new ships based on region
-      const newCount = calculateShipCount();
-      const newShips = Array.from({ length: newCount }, createShip);
-      
-      return [...keptShips, ...newShips];
+      // Age existing ships
+      const agedShips = prev.map(ship => ({
+        ...ship,
+        age: ship.age + 1
+      }));
+
+      // Filter ships that stay based on type
+      const shipsThatStay = agedShips.filter(ship => {
+        switch (ship.type) {
+          case 'transient':  // 50% chance to leave each update
+            return Math.random() < 0.5;
+          case 'regular':    // 20% chance to leave each update
+            return Math.random() < 0.8;
+          case 'persistent': // 3% chance to leave each update
+            return Math.random() < 0.97;
+          default:
+            return true;
+        }
+      }).map(toggleStatusRandomly);
+
+      // Calculate needed ships based on region
+      const targetCount = calculateShipCount();
+      const shipsNeeded = Math.max(0, targetCount - shipsThatStay.length);
+
+      // Add new ships if needed
+      const newShips = shipsNeeded > 0
+        ? Array.from({ length: shipsNeeded }, createShip)
+        : [];
+
+      return [...shipsThatStay, ...newShips];
     });
   };
 
   // Replace calculateShipCount with:
   const calculateShipCount = (): number => {
-    switch(currentRegion) {
+    switch (currentRegion) {
       case 'Core Worlds':
         return Math.random() < 0.01 ? 1040 : 250;
       case 'Colonies':
@@ -661,7 +699,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       </div>
 
       {/* Message Log */}
-      <div style={{...panelStyle, height: '520px'}}>
+      <div style={{ ...panelStyle, height: '520px' }}>
         <h3 style={panelTitleStyle}>TRANSMISSION LOG</h3>
 
         <div style={{
@@ -718,7 +756,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       </div>
 
       {/* Communication Channels */}
-      <div style={{...panelStyle, height: '290px'}}>
+      <div style={{ ...panelStyle, height: '290px' }}>
         <h3 style={panelTitleStyle}>COMMUNICATION CHANNELS</h3>
 
         {/* Frequency Slider */}
@@ -887,8 +925,11 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       </div>
 
       {/* Long Range Communications */}
-      <div style={{...panelStyle, height: '500px'}}>
-        <h3 style={panelTitleStyle}>LONG RANGE COMMS</h3>
+      <div style={{ ...panelStyle, height: '500px' }}>
+        <h3 style={panelTitleStyle}>LONG RANGE COMMS   {ships.length} Ships in the Area</h3>
+        <div style={{ fontSize: '10px', color: '#888888', textAlign: 'center', marginBottom: '10px' }}>
+          Current Region: {currentRegion}
+        </div>
         <div style={{
           fontSize: '11px',
           height: '100%',
@@ -933,7 +974,7 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
       </div>
 
       {/* Signal Analysis */}
-      <div style={{...panelStyle, height: '290px'}}>
+      <div style={{ ...panelStyle, height: '290px' }}>
         <h3 style={panelTitleStyle}>SIGNAL ANALYSIS</h3>
         <div style={{ fontSize: '11px', color: '#888888' }}>
           {/* NEW DROP-DOWN */}

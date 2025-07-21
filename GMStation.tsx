@@ -821,10 +821,12 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                   value={selectedGalaxyRegion}
                   onChange={(e) => {
                     setSelectedGalaxyRegion(e.target.value);
-                    // Emit region update to CommunicationsStation
-                    socket?.emit('region_update', {
-                      region: e.target.value,
-                      room: roomRef.current
+                    // Emit region update to CommunicationsStation with 'value' property
+                    socket?.emit('gm_broadcast', {
+                      type: 'region_update',
+                      value: e.target.value,  // Changed from 'region' to 'value'
+                      room: roomRef.current,
+                      source: 'gm'
                     });
                   }}
                   style={{
