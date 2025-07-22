@@ -49,6 +49,8 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
   const [isAnalysing, setIsAnalysing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [fastForwardAnalysis, setFastForwardAnalysis] = useState(false);
+  const [pinnedShips, setPinnedShips] = useState<Record<string, 'white' | 'red'>>({});
+  const [doublePinnedShipId, setDoublePinnedShipId] = useState<string | null>(null);
 
   // Add ref for isAnalysing to avoid stale closure in event listener
   const isAnalysingRef = useRef(isAnalysing);
@@ -417,6 +419,17 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
     return () => clearInterval(interval);
   }, [currentRegion]);
 
+  // Broadcast initial protocol when component mounts
+  useEffect(() => {
+    const room = new URLSearchParams(window.location.search).get('room') || 'default';
+    socket?.emit('gm_broadcast', {
+      type: 'composer_protocol_change',
+      value: recipient,
+      room,
+      source: 'communications'
+    });
+  }, [socket]);
+
   // Generate initial ships using Poisson distribution
   const generateInitialShips = () => {
     const params = calculateShipCount();
@@ -493,6 +506,9 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
 
       // First pass: identify ships that want to depart individually
       agedShips.forEach(ship => {
+        // Skip departure check if ship is pinned
+        if (pinnedShips[ship.id]) return;
+        
         const baseProbability = getBaseDepartureProbability(ship.type);
         if (Math.random() < baseProbability && ship.groupId) {
           departingGroups.add(ship.groupId);
@@ -501,6 +517,9 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
 
       // 3. Filter ships that stay with convoy synchronization
       const shipsThatStay = agedShips.filter(ship => {
+        // Always keep pinned ships
+        if (pinnedShips[ship.id]) return true;
+        
         let departureProbability = getBaseDepartureProbability(ship.type);
 
         // Increase departure chance if in departing convoy (3x multiplier)
@@ -780,7 +799,16 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
           <select
             style={{ ...inputStyle, marginBottom: '10px' }}
             value={recipient}
-            onChange={(e) => setRecipient(e.target.value)}
+            onChange={(e) => {
+              setRecipient(e.target.value);
+              const room = new URLSearchParams(window.location.search).get('room') || 'default';
+              socket?.emit('gm_broadcast', {
+                type: 'composer_protocol_change',
+                value: e.target.value,
+                room,
+                source: 'communications'
+              });
+            }}
           >
             <option value="All Protocols (UNSECURE)">All Protocols (UNSECURE)</option>
             <option value="Imperial Public Channel (UNENCRYPTED)">Imperial Public Channel (UNENCRYPTED)</option>
@@ -1118,15 +1146,90 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
               No vessels in range
             </div>
           ) : (
-            ships.map(ship => (
+            // Split ships into pinned and unpinned, then combine with pinned first
+            (() => {
+              const pinned = ships.filter(s => pinnedShips[s.id]);
+              const unpinned = ships.filter(s => !pinnedShips[s.id]);
+              return [...pinned, ...unpinned];
+            })().map(ship => (
               <div
                 key={ship.id}
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
                   margin: '4px 0',
-                  padding: '3px 0',
-                  borderBottom: '1px solid rgba(0, 255, 255, 0.1)'
+                  padding: '3px 5px',
+                  borderBottom: '1px solid rgba(0, 255, 255, 0.1)',
+                  backgroundColor: pinnedShips[ship.id] === 'white' ? 'rgba(255, 255, 255, 0.2)' : 
+                                  pinnedShips[ship.id] === 'red' ? 'rgba(255, 0, 0, 0.2)' : 'transparent',
+                  cursor: 'context-menu',
+                  transition: 'background-color 0.2s ease'
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  
+                  setPinnedShips(prev => {
+                    const currentState = prev[ship.id] || 'none';
+                    const newPinned = { ...prev };
+                    const room = new URLSearchParams(window.location.search).get('room') || 'default';
+                    
+                    // If currently white, make it red (if no other red exists)
+                    if (currentState === 'white') {
+                      // If there's a red ship, unpin it first
+                      if (doublePinnedShipId) {
+                        delete newPinned[doublePinnedShipId];
+                      }
+                      // Make this ship red
+                      newPinned[ship.id] = 'red';
+                      setDoublePinnedShipId(ship.id);
+                      
+                      // Notify GM about the red-pinned ship
+                      socket?.emit('gm_broadcast', {
+                        type: 'red_pinned_ship',
+                        value: {
+                          id: ship.id,
+                          designation: ship.designation,
+                          status: ship.status
+                        },
+                        room,
+                        source: 'communications'
+                      });
+                      
+                      return newPinned;
+                    } 
+                    // If currently red, unpin it
+                    else if (currentState === 'red') {
+                      delete newPinned[ship.id];
+                      if (doublePinnedShipId === ship.id) {
+                        setDoublePinnedShipId(null);
+                        // Notify GM that the red pin was removed
+                        socket?.emit('gm_broadcast', {
+                          type: 'red_pinned_ship',
+                          value: null,
+                          room,
+                          source: 'communications'
+                        });
+                      }
+                      return newPinned;
+                    } 
+                    // If not pinned, make it white
+                    else {
+                      // If there's a red ship, unpin it first
+                      if (doublePinnedShipId) {
+                        delete newPinned[doublePinnedShipId];
+                        setDoublePinnedShipId(null);
+                        // Notify GM that the red pin was removed
+                        socket?.emit('gm_broadcast', {
+                          type: 'red_pinned_ship',
+                          value: null,
+                          room,
+                          source: 'communications'
+                        });
+                      }
+                      newPinned[ship.id] = 'white';
+                      return newPinned;
+                    }
+                  });
                 }}
               >
                 <span style={{
@@ -1134,13 +1237,15 @@ const CommunicationsStation: React.FC<CommunicationsStationProps> = ({ gameState
                   textOverflow: 'ellipsis',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
-                  maxWidth: '70%'
+                  maxWidth: '70%',
+                  fontWeight: pinnedShips[ship.id] ? 'bold' : 'normal'
                 }}>
                   {ship.designation || 'Undesignated'}
                 </span>
                 <span style={{
                   color: ship.status === 'Active' ? '#00ff00' : '#ffff00',
-                  textShadow: '0 0 5px currentColor'
+                  textShadow: '0 0 5px currentColor',
+                  fontWeight: pinnedShips[ship.id] ? 'bold' : 'normal'
                 }}>
                   {ship.status}
                 </span>

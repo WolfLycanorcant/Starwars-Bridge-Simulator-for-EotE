@@ -175,6 +175,12 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
   const [scanActive, setScanActive] = useState(false);
   const [scanFlashing, setScanFlashing] = useState(false);
 
+  // Red-pinned ship state
+  const [redPinnedShip, setRedPinnedShip] = useState<{ id: string; designation: string | null; status: string } | null>(null);
+  
+  // Composer protocol state
+  const [composerProtocol, setComposerProtocol] = useState('All Protocols (UNSECURE)');
+
   // Emergency beacon flashing effect for GM station
   useEffect(() => {
     let flashInterval: NodeJS.Timeout;
@@ -284,17 +290,17 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
   useEffect(() => {
     // Use relative connection for ngrok compatibility
     // This will connect to the same domain/port as the React app
-    console.log('🔌 GM Station connecting to current domain');
+    console.log(' GM Station connecting to current domain');
     const s = io();
     setSocket(s);
 
     // Connection testing
     s.on('connect', () => {
-      console.log('✅ GM Station connected to server:', s.id);
+      console.log(' GM Station connected to server:', s.id);
     });
 
     s.on('connect_error', (error) => {
-      console.error('❌ GM Station connection failed:', error);
+      console.error(' GM Station connection failed:', error);
     });
 
     /* Listen for communications station frequency changes */
@@ -338,7 +344,7 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
             break;
           case 'analysis_mode_update':
             // Update GM display when communications station changes analysis mode
-            console.log('📊 GM received analysis mode update:', data.value);
+            console.log(' GM received analysis mode update:', data.value);
             setMessageAnalysis(data.value);
             setStates((prev) => ({
               ...prev,
@@ -381,17 +387,25 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
         case 'emergency_beacon_update':
           // Update GM beacon state when Communications station changes it
           if (data.source === 'communications') {
-            console.log('🚨 GM received emergency beacon update:', data.value);
+            console.log(' GM received emergency beacon update:', data.value);
             setEmergencyBeaconActive(data.value);
           }
           break;
         case 'scan_started':
           // Update GM scan indicator when Communications station starts a scan
           if (data.source === 'communications') {
-            console.log('🔍 GM received scan started:', data.value);
+            console.log(' GM received scan started:', data.value);
             setScanActive(true);
             // Flashing continues until GM responds with Scan Response
           }
+          break;
+        case 'red_pinned_ship':
+          console.log(' GM received RED-pinned ship from Comms:', data.value);
+          setRedPinnedShip(data.value);
+          break;
+        case 'composer_protocol_change':
+          console.log('GM received composer protocol:', data.value);
+          setComposerProtocol(data.value);
           break;
       }
     });
@@ -427,8 +441,50 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
           {!collapsed.comms && (
             <>
               {/* Frequency Slider */}
-              <div style={{ marginBottom: 15 }}>
-                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', marginBottom: 8, fontWeight: 'bold' }}>
+              {/* Red-pinned ship display */}
+              {redPinnedShip && (
+                <div style={{ 
+                  marginTop: 10, 
+                  marginBottom: 15,
+                  padding: '8px', 
+                  border: '1px solid #ff0040', 
+                  borderRadius: '4px',
+                  backgroundColor: 'rgba(255, 0, 0, 0.1)'
+                }}>
+                  <div style={{ 
+                    fontSize: '0.8rem', 
+                    color: '#ff0040', 
+                    fontWeight: 'bold',
+                    marginBottom: '5px'
+                  }}>
+                    RED-PINNED TARGET
+                  </div>
+                  <Row>
+                    <span>ID:</span>
+                    <span style={{ color: '#ff8800' }}>{redPinnedShip.id.slice(-6)}</span>
+                  </Row>
+                  <Row>
+                    <span>Designation:</span>
+                    <span style={{ color: '#ff8800' }}>{redPinnedShip.designation || 'Undesignated'}</span>
+                  </Row>
+                  <Row>
+                    <span>Status:</span>
+                    <span style={{ 
+                      color: redPinnedShip.status === 'Active' ? '#00ff88' : '#ffd700' 
+                    }}>
+                      {redPinnedShip.status}
+                    </span>
+                  </Row>
+                </div>
+              )}
+
+              <div style={{ marginTop: 10 }}>
+                <Row>
+                  <span>Protocol in use:</span>
+                  <span style={{ color: '#ffd700' }}>{composerProtocol}</span>
+                </Row>
+                
+                <div style={{ fontSize: '0.9rem', color: 'var(--gm-yellow)', margin: '10px 0 6px 0', fontWeight: 'bold' }}>
                   FREQUENCY CONTROL:
                 </div>
                 <div style={{
@@ -585,11 +641,15 @@ const GMStation: React.FC<GMStationProps> = ({ gameState, onGMUpdate }) => {
                         color: macro.color,
                         fontSize: '0.7rem',
                         padding: '3px 4px',
-                        margin: 0
+                        margin: 0,
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
                       }}
                       title={`${macro.description} - ${macro.frequency} MHz`}
                     >
-                      {macro.name}
+                      <span>{macro.name}</span>
+                      <span style={{ opacity: 0.7, fontSize: '0.6rem', marginLeft: '4px' }}>{macro.frequency.toFixed(1)}</span>
                     </EmitButton>
                   ))}
                 </div>
