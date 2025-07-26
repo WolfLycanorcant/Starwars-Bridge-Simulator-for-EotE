@@ -118,7 +118,7 @@ function App() {
 
     switch (selectedStation) {
       case 'COMMUNICATIONS':
-        return <CommunicationsStation gameState={gameState} onPlayerAction={handlePlayerAction} />;
+        return <CommunicationsStation gameState={gameState} onPlayerAction={handlePlayerAction} socket={socket} />;
       case 'ENGINEER':
         return <EngineeringStation gameState={gameState} onPlayerAction={handlePlayerAction} />;
       case 'PILOT':
@@ -221,69 +221,56 @@ function App() {
   if (!joined) {
     return (
       <div className="App">
-        <div className="lobby">
-          <div className="header">
-            <h1>🚀 IMPERIAL STAR DESTROYER</h1>
-            <h2>BRIDGE SIMULATOR</h2>
-            <div className="status">
-              Status: {connected ? '🟢 ONLINE' : '🔴 OFFLINE'}
+        <div className="carbon-hud">
+          <div className="hud-grid">
+            <div className="hud-header">
+              <h1>BRIDGE SIMULATOR</h1>
+              <span className={`status ${connected ? 'ok' : 'fail'}`}>
+                {connected ? 'ONLINE' : 'OFFLINE'}
+              </span>
             </div>
-          </div>
-
-          <div className="join-form">
-            <div className="form-group">
-              <label>Session ID:</label>
-              <input
-                type="text"
-                value={sessionId}
-                onChange={(e) => setSessionId(e.target.value)}
-                placeholder="e.g., bridge-alpha-1"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Your Name:</label>
-              <input
-                type="text"
-                value={playerName}
-                onChange={(e) => setPlayerName(e.target.value)}
-                placeholder="Enter your name"
-              />
-            </div>
-
-            <div className="form-group">
-              <label>Bridge Station:</label>
-              <select
-                value={selectedStation}
-                onChange={(e) => setSelectedStation(e.target.value)}
+            
+            <div className="hud-form">
+              <label>
+                <span>SESSION ID</span>
+                <input
+                  type="text"
+                  value={sessionId}
+                  onChange={(e) => setSessionId(e.target.value)}
+                  placeholder="e.g. alpha-42"
+                />
+              </label>
+              
+              <label>
+                <span>OFFICER NAME</span>
+                <input
+                  type="text"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  placeholder="call-sign"
+                />
+              </label>
+              
+              <label>
+                <span>STATION</span>
+                <select
+                  value={selectedStation}
+                  onChange={(e) => setSelectedStation(e.target.value)}
+                >
+                  {STATIONS.map(s => (
+                    <option key={s} value={s}>{s.replace('_', ' ')}</option>
+                  ))}
+                </select>
+              </label>
+              
+              <button
+                onClick={joinBridge}
+                disabled={!connected || !playerName || !sessionId}
+                className="hud-button"
               >
-                {STATIONS.map(station => (
-                  <option key={station} value={station}>
-                    {station.replace('_', ' ')}
-                  </option>
-                ))}
-              </select>
+                ENTER
+              </button>
             </div>
-
-            <button
-              onClick={joinBridge}
-              disabled={!connected || !playerName || !sessionId}
-              className="join-button"
-            >
-              JOIN BRIDGE
-            </button>
-          </div>
-
-          <div className="instructions">
-            <h3>Bridge Stations:</h3>
-            <ul>
-              <li><strong>COMMANDER:</strong> Mission control and tactical oversight</li>
-              <li><strong>PILOT:</strong> Navigation and ship movement</li>
-              <li><strong>GUNNER:</strong> Weapons systems and combat</li>
-              <li><strong>ENGINEER:</strong> Power management and repairs</li>
-              <li><strong>COMMUNICATIONS:</strong> Information and fleet coordination</li>
-              <li><strong>GAME MASTER:</strong> Scenario control</li>
-            </ul>
           </div>
         </div>
       </div>

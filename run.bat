@@ -3,6 +3,10 @@ echo ========================================
 echo  IMPERIAL STAR DESTROYER BRIDGE SIMULATOR
 echo ========================================
 echo.
+echo Docker Container Information:
+echo - PostgreSQL: bridge_simulator_db (861d0d4d9f42) on port 5432
+echo - Redis: bridge_simulator_redis (ac0b8d838575) on port 6379
+echo.
 echo Starting Bridge Simulator...
 echo.
 
@@ -19,15 +23,35 @@ echo [1/7] Cleaning up existing containers...
 docker-compose down 2>nul
 docker system prune -f --volumes 2>nul
 
-REM Check if Docker is running and start database services
+REM Start database services
 echo [2/7] Starting database services...
+echo Starting database services with docker-compose...
 docker-compose up postgres redis -d
+
+REM Wait a moment for containers to start
+timeout /t 3 /nobreak >nul
+
+REM Check if containers are actually running
+echo Verifying containers started successfully...
+docker ps | findstr "bridge_simulator_db" >nul
 if %errorlevel% neq 0 (
-    echo ERROR: Failed to start database services. Make sure Docker is running.
+    echo ERROR: PostgreSQL container failed to start. Make sure Docker is running.
     echo You can install Docker Desktop from: https://www.docker.com/products/docker-desktop
     pause
     exit /b 1
 )
+
+docker ps | findstr "bridge_simulator_redis" >nul
+if %errorlevel% neq 0 (
+    echo ERROR: Redis container failed to start. Make sure Docker is running.
+    echo You can install Docker Desktop from: https://www.docker.com/products/docker-desktop
+    pause
+    exit /b 1
+)
+
+echo ✅ Database containers are running successfully:
+echo - PostgreSQL: bridge_simulator_db (861d0d4d9f42)
+echo - Redis: bridge_simulator_redis (ac0b8d838575)
 
 REM Skip additional docker images - not needed for basic setup
 echo [3/7] Skipping additional docker services (not required)...
@@ -35,6 +59,16 @@ echo [3/7] Skipping additional docker services (not required)...
 REM Wait for databases to initialize
 echo [4/7] Waiting for databases to initialize...
 timeout /t 8 /nobreak >nul
+
+REM Initialize database if needed
+echo [4.5/7] Checking database initialization...
+docker exec -i bridge_simulator_db psql -U bridge_user -d bridge_simulator -c "SELECT 1;" >nul 2>&1
+if %errorlevel% neq 0 (
+    echo Warning: Could not connect to database, but continuing...
+    echo The database should be automatically initialized by the Docker container.
+) else (
+    echo Database is running and accessible.
+)
 
 REM Install dependencies if needed
 echo [5/7] Checking dependencies...
